@@ -1,0 +1,24 @@
+stages:
+  - verify
+
+# Нижняя граница (PHP 8.2, DM School) и текущая (PHP 8.4, RaceBeat). Зависимости ставятся под версию PHP job'а.
+.verify:
+  stage: verify
+  tags:
+    - shared
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git unzip libzip-dev > /dev/null
+    - docker-php-ext-install zip > /dev/null
+    - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+    - composer update --no-interaction --no-progress --prefer-dist
+  script:
+    - vendor/bin/phpcs
+    - vendor/bin/phpunit
+
+php-8.2:
+  extends: .verify
+  image: php:8.2-cli
+
+php-8.4:
+  extends: .verify
+  image: php:8.4-cli

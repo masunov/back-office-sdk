@@ -1,0 +1,83 @@
+<?xml version="1.0"?>
+<ruleset name="Project ruleset"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/squizlabs/php_codesniffer/phpcs.xsd">
+    <arg name="extensions" value="php"/>
+    <arg value="np"/>
+
+    <config name="php_version" value="80200"/>
+
+    <rule ref="PSR12"/>
+
+    <rule ref="PSR2.Classes.PropertyDeclaration.SpacingAfterType">
+        <severity>0</severity>
+    </rule>
+
+    <rule ref="Generic.Formatting.MultipleStatementAlignment">
+        <type>error</type>
+    </rule>
+    <rule ref="Generic.CodeAnalysis.EmptyStatement"/>
+    <rule ref="Generic.CodeAnalysis.UnusedFunctionParameter"/>
+    <rule ref="Generic.CodeAnalysis.EmptyStatement"/>
+    <rule ref="Generic.Commenting.Todo"/>
+    <rule ref="Generic.Formatting.DisallowMultipleStatements"/>
+    <rule ref="Generic.Formatting.SpaceAfterCast"/>
+    <rule ref="Generic.Functions.FunctionCallArgumentSpacing"/>
+    <rule ref="Generic.NamingConventions.UpperCaseConstantName"/>
+    <rule ref="Generic.PHP.DeprecatedFunctions"/>
+    <rule ref="Generic.PHP.DisallowShortOpenTag"/>
+    <rule ref="Generic.PHP.LowerCaseKeyword"/>
+    <rule ref="Generic.PHP.LowerCaseConstant"/>
+    <rule ref="Generic.Strings.UnnecessaryStringConcat"/>
+    <rule ref="Generic.WhiteSpace.DisallowTabIndent"/>
+    <rule ref="Generic.WhiteSpace.IncrementDecrementSpacing"/>
+    <rule ref="Generic.WhiteSpace.ScopeIndent"/>
+
+    <!-- Lines can be 120 chars long, but never show errors -->
+    <rule ref="Generic.Files.LineLength">
+        <properties>
+            <property name="lineLimit" value="120"/>
+            <property name="absoluteLineLimit" value="0"/>
+        </properties>
+    </rule>
+    <rule ref="Generic.Arrays.DisallowLongArraySyntax" />
+
+    <!-- Use Unix newlines -->
+    <rule ref="Generic.Files.LineEndings">
+        <properties>
+            <property name="eolChar" value="\n"/>
+        </properties>
+    </rule>
+
+    <!-- Ban some functions -->
+    <rule ref="Generic.PHP.ForbiddenFunctions">
+        <properties>
+            <property name="forbiddenFunctions" type="array">
+                <element key="sizeof" value="count"/>
+                <element key="delete" value="unset"/>
+                <element key="print" value="echo"/>
+                <element key="is_null" value="null"/>
+                <element key="create_function" value="null"/>
+                <element key="dd" value="null"/>
+                <element key="var_dump" value="null"/>
+            </property>
+        </properties>
+    </rule>
+
+    <!-- We are not allow empty catch statements -->
+    <rule ref="Generic.CodeAnalysis.EmptyStatement.DetectedCATCH">
+        <type>error</type>
+    </rule>
+
+    <!-- Only one argument per line in multi-line function calls -->
+    <rule ref="PEAR.Functions.FunctionCallSignature">
+        <properties>
+            <property name="allowMultipleArguments" value="false"/>
+        </properties>
+    </rule>
+
+    <file>src</file>
+    <file>config</file>
+    <file>database</file>
+    <file>tests</file>
+</ruleset>

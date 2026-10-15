@@ -1,0 +1,52 @@
+{
+    "name": "mnd/back-office-sdk",
+    "description": "PHP SDK of back-office with a Laravel adapter: client, DTO, webhook signature check, outbox",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "guzzlehttp/guzzle": "^7.8",
+        "illuminate/console": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/database": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/http": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/queue": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/routing": "^10.0|^11.0|^12.0|^13.0",
+        "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
+        "psr/simple-cache": "^3.0",
+        "ramsey/uuid": "^4.7"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^8.0|^9.0|^10.0|^11.0",
+        "phpunit/phpunit": "^10.5|^11.0|^12.0",
+        "squizlabs/php_codesniffer": "^4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Mnd\\BackOffice\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Mnd\\BackOffice\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Mnd\\BackOffice\\Laravel\\BackOfficeServiceProvider"
+            ],
+            "aliases": {
+                "BackOffice": "Mnd\\BackOffice\\Laravel\\Facades\\BackOffice"
+            }
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "lint": "phpcs"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
