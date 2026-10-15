@@ -110,6 +110,42 @@ BackOffice::finance(null)->putCategory('entry_fee', 'Взносы', 'income');  
 Чтение повторяется дважды (100 и 400 мс), запись — нет. После 5 сбоев подряд circuit breaker на 30 секунд
 перестаёт отправлять запросы.
 
+## Расписание (timetable)
+
+```php
+use Mnd\BackOffice\Dto\WorkScheduleInput;
+use Mnd\BackOffice\Requests\TimetableRequests;
+
+$tt = BackOffice::timetable($school->id, new Actor($user->id, $user->name));
+
+// График площадки: каждый день 10:00–18:00, по числу машин; обед — нерабочий интервал.
+$tt->createWorkSchedule(WorkScheduleInput::working('track-1', '2026-11-01', '10:00', '18:00', maxEntries: 3,
+    metadata: ['car_ids' => [1, 2, 3]]));
+$tt->createWorkSchedule(WorkScheduleInput::nonWorking('track-1', '2026-11-01', '13:00', '14:00', description: 'Обед'));
+
+// Свободные слоты с пулом машин окна; время — со смещением площадки.
+$slots = $tt->slots('track-1', '2026-11-03', duration: 60, resourceRefs: ['car-1', 'car-2', 'car-3']);
+
+// Запись с проверкой у проекта (баланс сертификата): холд → своя транзакция → confirm или cancel.
+$booking = $tt->hold('track-1', $slots[0]->startsAt, $slots[0]->endsAt, 'Иванов — 000123',
+    ttl: 300, resourceRef: $slots[0]->freeResourceRefs[0], externalRef: new ExternalRef('certificate', $cert->id));
+
+DB::transaction(function () use ($booking, $cert, $school) {
+    $cert->holdMinutes($booking->duration, $booking->id);
+    BackOffice::outbox()->push(TimetableRequests::confirm($booking->id), tenant: $school->id);
+});
+```
+
+- Без проверки у проекта — сразу `$tt->book(...)`.
+- Переходы (`confirm`, `complete`, `cancel`, `noShow`) идемпотентны: их можно отправлять через очередь, повтор
+  отвечает бронью как есть. Изменения одной брони идут в одном потоке очереди и не обгоняют друг друга.
+- Перенос — `reschedule($id, $startsAt, $endsAt, $version)`: `version` — та, что видел проект; без `resourceRef`
+  ресурс остаётся, `null` освобождает его.
+- Правило с активными бронями меняется только безопасно (больше мест, шире время); остальное —
+  `closeWorkSchedule($id, $fromDate, replacement: WorkScheduleInput::working(...))`.
+- Отказы: `slot_unavailable`, `resource_conflict`, `outside_working_hours`, `hold_expired`, `version_conflict`,
+  `has_active_bookings` (в `details()['bookings']` — затронутые брони) и другие — `docs/openapi.yaml` сервиса.
+
 ## Вебхуки
 
 ```php

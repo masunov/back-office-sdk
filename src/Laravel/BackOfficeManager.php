@@ -6,6 +6,7 @@ namespace Mnd\BackOffice\Laravel;
 
 use Mnd\BackOffice\Api\FinanceApi;
 use Mnd\BackOffice\Api\TenantsApi;
+use Mnd\BackOffice\Api\TimetableApi;
 use Mnd\BackOffice\BackOfficeClient;
 use Mnd\BackOffice\Dto\Actor;
 use Mnd\BackOffice\Laravel\Outbox\BackOfficeOutbox;
@@ -44,5 +45,10 @@ class BackOfficeManager
     public function finance(?string $tenant, ?Actor $actor = null): FinanceApi
     {
         return $this->forTenant($tenant, $actor)->finance();
+    }
+
+    public function timetable(string $tenant, ?Actor $actor = null): TimetableApi
+    {
+        return $this->forTenant($tenant, $actor)->timetable();
     }
 }
