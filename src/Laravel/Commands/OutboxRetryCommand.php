@@ -15,7 +15,7 @@ class OutboxRetryCommand extends Command
 
     public function handle(): int
     {
-        $ids      = array_map('intval', (array) $this->argument('id'));
+        $ids      = array_map('strval', (array) $this->argument('id'));
         $messages = OutboxMessage::failed()->filter(
             fn (OutboxMessage $message): bool => $this->option('all') || \in_array($message->id, $ids, true)
         );

@@ -30,7 +30,9 @@ abstract class TestCase extends BaseTestCase
 
     protected function defineEnvironment($app): void
     {
-        $app['config']->set('database.default', 'testing');
+        // sqlite by default; DB_CONNECTION=pgsql (and DB_HOST, DB_DATABASE…) runs the suite on PostgreSQL, where the
+        // migration of v1.0 failed.
+        $app['config']->set('database.default', getenv('DB_CONNECTION') === 'pgsql' ? 'pgsql' : 'testing');
         $app['config']->set('queue.default', 'sync');
         $app['config']->set('back-office.url', 'https://bo.test');
         $app['config']->set('back-office.key', 'bo_key');

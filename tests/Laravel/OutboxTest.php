@@ -6,6 +6,7 @@ namespace Mnd\BackOffice\Tests\Laravel;
 
 use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Psr7\Response;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,7 @@ use Mnd\BackOffice\Laravel\Events\OutboxMessageSent;
 use Mnd\BackOffice\Laravel\Facades\BackOffice;
 use Mnd\BackOffice\Laravel\Outbox\OutboxMessage;
 use Mnd\BackOffice\Requests\FinanceRequests;
+use Psr\Http\Message\RequestInterface;
 
 /**
  * The outbox (back-office ROADMAP.md, 2.7, 6 stage 2): a mark of payment reaches the service after it is back.
@@ -162,6 +164,60 @@ class OutboxTest extends TestCase
         $this->assertTrue($payment->refresh()->isSent());
         $this->assertTrue($unmark->refresh()->isSent());
         $this->artisan('back-office:outbox-stuck')->expectsOutput('Nothing is stuck');
+    }
+
+    /**
+     * The service keeps its answer to an Idempotency-Key (back-office EnsureIdempotency): a retry with the same key gets
+     * the same refusal back, whatever was fixed since. A manual retry must come with a new key.
+     */
+    public function testManualRetryIsNotAnsweredWithStoredRefusal(): void
+    {
+        $answers  = [];
+        $category = false;
+        $service  = function (RequestInterface $request) use (&$answers, &$category): Response {
+            $key = $request->getHeaderLine('Idempotency-Key');
+
+            return $answers[$key] ??= $category
+                ? self::jsonResponse(201, ['data' => self::operationData()])
+                : self::apiError(422, 'unknown_category');
+        };
+        $this->mock->append($service, $service);
+
+        $payment = $this->pushPayment()->refresh();
+        $this->assertSame(OutboxMessage::STATUS_FAILED, $payment->status);
+
+        // The category is added in the service, a person retries the message.
+        $category = true;
+        $this->artisan('back-office:outbox-retry', ['id' => [$payment->id]])->assertSuccessful();
+        $this->artisan('back-office:outbox-send')->assertSuccessful();
+
+        $this->assertTrue($payment->refresh()->isSent());
+        $this->assertNotSame(
+            $this->sentRequest(0)->getHeaderLine('Idempotency-Key'),
+            $this->sentRequest(1)->getHeaderLine('Idempotency-Key')
+        );
+    }
+
+    public function testManualRetryGivesRetriableRefusalNewAttempts(): void
+    {
+        config(['back-office.outbox.max_attempts' => 2]);
+        $this->mock->append(
+            self::apiError(409, 'operation_not_found'),
+            self::apiError(409, 'operation_not_found'),
+            self::apiError(409, 'operation_not_found')
+        );
+
+        $unmark = $this->pushUnmark()->refresh();
+        $this->travelTo(Carbon::now()->addHour());
+        $this->artisan('back-office:outbox-send');
+        $this->assertSame(OutboxMessage::STATUS_FAILED, $unmark->refresh()->status);
+
+        $this->artisan('back-office:outbox-retry', ['--all' => true])->assertSuccessful();
+        $this->artisan('back-office:outbox-send');
+
+        // One failure after the retry is a retry later again, not the end.
+        $this->assertSame(OutboxMessage::STATUS_PENDING, $unmark->refresh()->status);
+        $this->assertSame(1, $unmark->attempts);
     }
 
     public function testRetriableRefusalIsRetriedThenFails(): void

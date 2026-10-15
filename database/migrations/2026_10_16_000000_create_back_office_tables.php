@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create(
             'back_office_outbox',
             function (Blueprint $table) {
-                $table->uuid('event_id')->primary();
+                // UUIDv7: ordered by the time of the push, which is the order of the messages of one stream.
+                $table->uuid('id')->primary();
                 $table->string('stream')->nullable();
                 $table->json('request');
                 $table->string('status', 16);

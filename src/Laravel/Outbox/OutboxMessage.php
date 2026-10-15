@@ -16,7 +16,11 @@ use Ramsey\Uuid\Uuid;
  * in the project, so the change and its request are kept or lost together. Messages of one stream are sent in the
  * order of their ids; a failed message holds its stream until it is retried.
  *
- * @property int                       $id
+ * Ids are UUIDv7, monotonic within one process: messages of one stream pushed by one request keep their order.
+ * Messages of one stream from different requests are ordered by the time of the push, to the millisecond; a stream
+ * is one entity of the project (a payment and its unmarking), whose changes come one after another.
+ *
+ * @property string                    $id
  * @property string|null               $stream
  * @property array<string, mixed>      $request
  * @property string                    $status
@@ -77,7 +81,7 @@ class OutboxMessage extends Model
     }
 
     /**
-     * @return list<int>
+     * @return list<string>
      */
     public static function dueIds(int $limit): array
     {
@@ -87,7 +91,7 @@ class OutboxMessage extends Model
                    ->orderBy('id')
                    ->limit($limit)
                    ->pluck('id')
-                   ->map(fn($id): int => (int)$id)
+                   ->map(fn ($id): string => (string) $id)
                    ->all();
     }
 
@@ -95,7 +99,7 @@ class OutboxMessage extends Model
      * Takes the message for one attempt with a single conditional UPDATE: of two senders one gets it,
      * and a sender that died midway leaves it due again after the lease.
      */
-    public static function claim(int $id, int $leaseSeconds): ?self
+    public static function claim(string $id, int $leaseSeconds): ?self
     {
         $now     = Carbon::now();
         $claimed = self::query()
@@ -116,9 +120,9 @@ class OutboxMessage extends Model
     {
         return self::query()
                    ->where('status', self::STATUS_FAILED)
-                   ->orWhere(
-                       fn($query) => $query->where('status', self::STATUS_PENDING)->where('attempts', '>=', $attemptsAtLeast)
-                   )
+                ->orWhere(
+                    fn($query) => $query->where('status', self::STATUS_PENDING)->where('attempts', '>=', $attemptsAtLeast)
+                )
                    ->orderBy('id')
                    ->get();
     }
@@ -196,12 +200,22 @@ class OutboxMessage extends Model
     }
 
     /**
-     * Sends a failed message again, with the same Idempotency-Key: after the cause was fixed in the project or the
-     * service. Its stream goes on after it.
+     * Sends a failed message again, after the cause was fixed in the project or the service; its stream goes on after
+     * it. With a new Idempotency-Key: the service keeps its answer to a key, so the old key would bring back the same
+     * refusal. A new key is safe, because a failed message was refused and the service did nothing for it; an
+     * operation with a source is still written once, by its source. The attempts start over.
      */
     public function retry(): void
     {
+        $request = $this->request;
+
+        if (($request['idempotency_key'] ?? null) !== null) {
+            $request['idempotency_key'] = Uuid::uuid7()->toString();
+        }
+
+        $this->request         = $request;
         $this->status          = self::STATUS_PENDING;
+        $this->attempts        = 0;
         $this->failed_at       = null;
         $this->next_attempt_at = Carbon::now();
         $this->save();
