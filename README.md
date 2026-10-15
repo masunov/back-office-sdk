@@ -16,12 +16,12 @@ php artisan migrate                 # back_office_outbox, back_office_webhook_ev
 
 `.env` (и `.env.example`):
 
-| Переменная | Откуда                                                                              |
-| --- |-------------------------------------------------------------------------------------|
-| `BACK_OFFICE_URL` | адрес сервиса, например `https://localhost`                                         |
-| `BACK_OFFICE_KEY` | `php artisan platform:key-issue <проект>` на сервисе                                |
-| `BACK_OFFICE_WEBHOOK_SECRET` | `php artisan platform:project-webhook <проект> <url>` на сервисе                    |
-| `BACK_OFFICE_CACHE_STORE` | необязательно: хранилище состояния circuit breaker, общее для всех воркеров (redis) |
+| Переменная                                          | Откуда                                                                              |
+|-----------------------------------------------------|-------------------------------------------------------------------------------------|
+| `BACK_OFFICE_URL`                                   | адрес сервиса, например `https://localhost`                                         |
+| `BACK_OFFICE_KEY`                                   | `php artisan platform:key-issue <проект>` на сервисе                                |
+| `BACK_OFFICE_WEBHOOK_SECRET`                        | `php artisan platform:project-webhook <проект> <url>` на сервисе                    |
+| `BACK_OFFICE_CACHE_STORE`                           | необязательно: хранилище состояния circuit breaker, общее для всех воркеров (redis) |
 | `BACK_OFFICE_QUEUE`, `BACK_OFFICE_QUEUE_CONNECTION` | необязательно: очередь задачи-отправителя                                           |
 
 Вебхук — в `routes/api.php` (CSRF не нужен, запрос подписан):
@@ -70,12 +70,12 @@ BackOffice::outbox()->push(FinanceRequests::reverseBySource('stage_entry_fee', $
 
 Что происходит с сообщением:
 
-| Ответ сервиса | Что делает очередь |
-| --- | --- |
-| 2xx | отправлено, событие `OutboxMessageSent` (в нём ответ, например id операции) |
-| нет ответа, 5xx, circuit breaker открыт, 401/403 | повтор без ограничения, задержка растёт до 10 минут |
-| `409 operation_not_found` (сторно раньше операции), 429 | повтор, до `max_attempts` раз |
-| остальные отказы (422, `409 idempotency_conflict`, `period_locked`) | `failed`, событие `OutboxMessageFailed`; поток ждёт |
+| Ответ сервиса                                                       | Что делает очередь                                                          |
+|---------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| 2xx                                                                 | отправлено, событие `OutboxMessageSent` (в нём ответ, например id операции) |
+| нет ответа, 5xx, circuit breaker открыт, 401/403                    | повтор без ограничения, задержка растёт до 10 минут                         |
+| `409 operation_not_found` (сторно раньше операции), 429             | повтор, до `max_attempts` раз                                               |
+| остальные отказы (422, `409 idempotency_conflict`, `period_locked`) | `failed`, событие `OutboxMessageFailed`; поток ждёт                         |
 
 «Застрявшие»: `OutboxMessage::stuck()` — для экрана в проекте, `php artisan back-office:outbox-stuck` — в консоли.
 После исправления причины: `php artisan back-office:outbox-retry <id>…` или `--all`.
@@ -145,6 +145,46 @@ DB::transaction(function () use ($booking, $cert, $school) {
   `closeWorkSchedule($id, $fromDate, replacement: WorkScheduleInput::working(...))`.
 - Отказы: `slot_unavailable`, `resource_conflict`, `outside_working_hours`, `hold_expired`, `version_conflict`,
   `has_active_bookings` (в `details()['bookings']` — затронутые брони) и другие — `docs/openapi.yaml` сервиса.
+
+## Склад (warehouse)
+
+```php
+use Mnd\BackOffice\Dto\WarehouseItemInput;
+use Mnd\BackOffice\Requests\WarehouseRequests;
+
+$wh = BackOffice::warehouse($organization->id, new Actor($user->id, $user->name));
+
+// Позиции и места; место этапа связано с этапом через external_ref.
+$tent  = $wh->createItem(new WarehouseItemInput('Шатёр 3×3', 'шт', minBalance: '2'));
+$radio = $wh->createItem(new WarehouseItemInput('Рация', 'шт', accounting: 'serial'));
+$store = $wh->createLocation('Склад', 'warehouse');
+$field = $wh->createLocation('Этап 3', 'field', externalRef: new ExternalRef('stage', $stage->id, $stage->name));
+
+// Приход со стоимостью: при включённом finance и статье в settings — расход в finance.
+$wh->move(WarehouseRequests::receipt($tent->id, $store->id, quantity: '10', unitCost: '15000.00'));
+$wh->move(WarehouseRequests::receipt($radio->id, $store->id, serialNumber: 'R-0001'));
+
+// Выдача человеку этапа до конца этапа и возврат — через очередь: возврат не обгонит выдачу.
+BackOffice::outbox()->push(
+    WarehouseRequests::issue($tent->id, $store->id, new ExternalRef('stage_staff', $staff->id, $staff->name),
+        quantity: '2', dueAt: '2026-11-03T20:00:00+05:00', sourceType: 'stage_staff_issue', sourceId: $issue->id),
+    tenant: $organization->id
+);
+
+// Ответ на движение — с остатками мест после него.
+$movement = $wh->move(WarehouseRequests::transfer($tent->id, $store->id, $field->id, quantity: '3'));
+$movement->balances; // list<WarehouseBalance>
+
+$wh->issues(openOnly: true, recipient: new ExternalRef('stage_staff', $staff->id)); // что не вернулось
+$wh->setUnitCondition($unitId, 'in_repair', 'Не включается');                       // состояние единицы на месте
+```
+
+- Количества и стоимости — строки: `2.500`, `15000.00`. Серийная позиция движется по одной единице: приход —
+  по `serialNumber`, остальное — по `unitId`.
+- Движения одной позиции идут в одном потоке очереди (`warehouse_item:<id>`).
+- `inventory()` передаёт фактическое количество; без расхождения `move()` вернёт `null`.
+- Отказы: `insufficient_stock`, `unit_unavailable`, `return_exceeds_issue`, `unknown_item`, `unknown_issue`,
+  `period_locked` (списание по закрытой в finance ссылке) и другие — `docs/openapi.yaml` сервиса.
 
 ## Вебхуки
 

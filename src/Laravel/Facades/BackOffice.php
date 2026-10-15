@@ -14,6 +14,7 @@ use Mnd\BackOffice\Laravel\BackOfficeManager;
  * @method static \Mnd\BackOffice\Api\TenantsApi tenants(?\Mnd\BackOffice\Dto\Actor $actor = null)
  * @method static \Mnd\BackOffice\Api\FinanceApi finance(?string $tenant, ?\Mnd\BackOffice\Dto\Actor $actor = null)
  * @method static \Mnd\BackOffice\Api\TimetableApi timetable(string $tenant, ?\Mnd\BackOffice\Dto\Actor $actor = null)
+ * @method static \Mnd\BackOffice\Api\WarehouseApi warehouse(string $tenant, ?\Mnd\BackOffice\Dto\Actor $actor = null)
  *
  * @see BackOfficeManager
  */

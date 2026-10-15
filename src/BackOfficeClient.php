@@ -8,6 +8,7 @@ use GuzzleHttp\Client;
 use Mnd\BackOffice\Api\FinanceApi;
 use Mnd\BackOffice\Api\TenantsApi;
 use Mnd\BackOffice\Api\TimetableApi;
+use Mnd\BackOffice\Api\WarehouseApi;
 use Mnd\BackOffice\Dto\Actor;
 use Mnd\BackOffice\Http\CircuitBreaker;
 use Mnd\BackOffice\Http\OutgoingRequest;
@@ -58,6 +59,11 @@ final class BackOfficeClient
     public function timetable(): TimetableApi
     {
         return new TimetableApi($this->transport, $this->tenant, $this->actor);
+    }
+
+    public function warehouse(): WarehouseApi
+    {
+        return new WarehouseApi($this->transport, $this->tenant, $this->actor);
     }
 
     /**
