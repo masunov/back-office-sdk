@@ -170,6 +170,12 @@ BackOffice::outbox()->push(
         quantity: '2', dueAt: '2026-11-03T20:00:00+05:00', sourceType: 'stage_staff_issue', sourceId: $issue->id),
     tenant: $organization->id
 );
+// Возврат — по источнику выдачи: очередь ещё не знает id выдачи в сервисе. Выдача не дошла — 409 issue_not_found, повтор.
+BackOffice::outbox()->push(
+    WarehouseRequests::returnBySource($tent->id, 'stage_staff_issue', $issue->id, sourceType: 'stage_staff_return',
+        sourceId: $return->id),
+    tenant: $organization->id
+);
 
 // Ответ на движение — с остатками мест после него.
 $movement = $wh->move(WarehouseRequests::transfer($tent->id, $store->id, $field->id, quantity: '3'));

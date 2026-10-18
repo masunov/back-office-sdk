@@ -12,11 +12,12 @@ use Throwable;
 class ApiErrorException extends BackOfficeException
 {
     /**
-     * Refusals that may be gone on a retry: the operation of a reversal has not arrived yet, the same key is being
-     * processed right now, the ref was opened again.
+     * Refusals that may be gone on a retry: the operation of a reversal or the issue of a return has not arrived yet,
+     * the same key is being processed right now, the ref was opened again.
      */
     private const RETRIABLE_CODES = [
         'operation_not_found',
+        'issue_not_found',
         'idempotency_in_progress',
         'too_many_requests',
     ];

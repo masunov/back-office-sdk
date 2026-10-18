@@ -7,6 +7,7 @@ namespace Mnd\BackOffice\Tests\Unit;
 use Mnd\BackOffice\BackOfficeClient;
 use Mnd\BackOffice\Dto\Actor;
 use Mnd\BackOffice\Dto\ExternalRef;
+use Mnd\BackOffice\Exceptions\ApiErrorException;
 use Mnd\BackOffice\Http\Transport;
 use Mnd\BackOffice\Requests\WarehouseRequests;
 use PHPUnit\Framework\TestCase;
@@ -45,6 +46,26 @@ class WarehouseTest extends TestCase
         );
         $this->assertSame(['type' => 'return', 'item_id' => self::ITEM, 'issue_id' => 'issue-1'], $back->body);
         $this->assertSame('INV-9', $receipt->body['source_id']);
+    }
+
+    public function testReturnBySourceFollowsTheIssueInItsStream(): void
+    {
+        $issue = WarehouseRequests::issue(self::ITEM, 'loc-1', new ExternalRef('stage_staff', '17'), '2', sourceType: 'stage_staff_issue', sourceId: 'i-1');
+        $back  = WarehouseRequests::returnBySource(self::ITEM, 'stage_staff_issue', 'i-1', sourceType: 'stage_staff_return', sourceId: 'r-1');
+
+        $this->assertSame($issue->stream, $back->stream);
+        $this->assertSame(
+            [
+                'type'              => 'return',
+                'item_id'           => self::ITEM,
+                'issue_source_type' => 'stage_staff_issue',
+                'issue_source_id'   => 'i-1',
+                'source_type'       => 'stage_staff_return',
+                'source_id'         => 'r-1',
+            ],
+            $back->body
+        );
+        $this->assertTrue((new ApiErrorException(409, 'issue_not_found', 'x'))->isRetriable());
     }
 
     public function testCorrectionsCarryTheirOwnFields(): void

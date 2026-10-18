@@ -305,6 +305,42 @@ final class WarehouseRequests
     }
 
     /**
+     * A return of the issue moved with this source, for the outbox: it goes right behind the issue in the stream of
+     * the item before the id of the issue is known. The issue not there yet — `409 issue_not_found`, retried.
+     *
+     * @param  'ok'|'damaged'|'in_repair'|null  $condition  of a serial unit
+     */
+    public static function returnBySource(
+        string $itemId,
+        string $issueSourceType,
+        string $issueSourceId,
+        ?string $quantity = null,
+        ?string $toLocationId = null,
+        ?string $condition = null,
+        ?string $sourceType = null,
+        ?string $sourceId = null,
+        ?string $comment = null,
+        ?string $occurredAt = null,
+    ): OutgoingRequest {
+        return self::movement(
+            'return',
+            $itemId,
+            [
+            'issue_source_type' => $issueSourceType,
+            'issue_source_id'   => $issueSourceId,
+            'quantity'          => $quantity,
+            'to_location_id'    => $toLocationId,
+            'condition'         => $condition,
+            ],
+            $sourceType,
+            $sourceId,
+            null,
+            $comment,
+            $occurredAt
+        );
+    }
+
+    /**
      * The counted quantity at a place; the service writes the difference, or nothing.
      */
     public static function inventory(
