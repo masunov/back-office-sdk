@@ -192,6 +192,40 @@ $wh->setUnitCondition($unitId, 'in_repair', 'Не включается');       
 - Отказы: `insufficient_stock`, `unit_unavailable`, `return_exceeds_issue`, `unknown_item`, `unknown_issue`,
   `period_locked` (списание по закрытой в finance ссылке) и другие — `docs/openapi.yaml` сервиса.
 
+### Резервы
+
+Резерв держит количество на месте под этап (или другой `holder`): другие движения берут только свободное
+(`WarehouseBalance::$available = quantity − reserved`), зарезервированную единицу двигает только её резерв.
+
+```php
+// Под этап, до его конца; серийная — одной unitId или целым quantity любых свободных единиц.
+BackOffice::outbox()->push(
+    WarehouseRequests::reserve($tent->id, $store->id, new ExternalRef('stage', $stage->id, $stage->name),
+        quantity: '4', expiresAt: $stage->ends_at, sourceType: 'stage_item', sourceId: $row->id),
+    tenant: $organization->id
+);
+// Выдача по резерву — из его места, без quantity — весь остаток. По источнику: id резерва очередь ещё не знает.
+BackOffice::outbox()->push(
+    WarehouseRequests::issueReservedBySource($tent->id, 'stage_item', $row->id,
+        new ExternalRef('stage_staff', $staff->id, $staff->name), quantity: '2'),
+    tenant: $organization->id
+);
+// Отмена освобождает остаток; повторная возвращает резерв как есть.
+BackOffice::outbox()->push(WarehouseRequests::cancelReservationBySource($tent->id, 'stage_item', $row->id), tenant: $organization->id);
+
+$wh->reserve(WarehouseRequests::reserve(...));                             // сразу, когда человек ждёт ответа
+$wh->reservations(activeOnly: true, holder: new ExternalRef('stage', $stage->id));
+```
+
+- Резерв, выдача и отмена по нему идут в потоке позиции и не обгоняют друг друга. Резерв по источнику ещё не дошёл —
+  `409 reservation_not_found`, очередь повторяет; `404` с тем же кодом (неизвестный id) — нет.
+- Резерв закрывается: `fulfilled` (выдан весь), `cancelled`, `expired` (по `expires_at`). Инвентаризация, нашедшая
+  меньше зарезервированного, сокращает самые новые резервы места.
+- Изменения приходят вебхуком `warehouse.reservation.changed`: `WarehouseReservation::fromArray($event->data)`,
+  `action` — `created`, `issued`, `fulfilled`, `cancelled`, `expired`, `shortened`.
+- Отказы: `insufficient_stock` (`available`, `reserved`, `requested`), `unit_reserved`, `reservation_closed`,
+  `reservation_exceeded`, `unknown_reservation`, `invalid_reservation`.
+
 ## Вебхуки
 
 ```php

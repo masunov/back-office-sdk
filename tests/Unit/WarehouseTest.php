@@ -157,4 +157,94 @@ class WarehouseTest extends TestCase
         $this->assertSame('in_repair', $history->unit->condition);
         $this->assertSame('Не включается', $history->conditions[0]['comment']);
     }
+
+    public function testReservationAndItsIssueAndCancelShareTheStreamOfTheItem(): void
+    {
+        $reserve = WarehouseRequests::reserve(self::ITEM, 'loc-1', new ExternalRef('stage', '3', 'Этап 3'), '4', expiresAt: '2026-11-03T20:00:00+05:00', sourceType: 'stage_item', sourceId: 's-1');
+        $issue   = WarehouseRequests::issueReservedBySource(self::ITEM, 'stage_item', 's-1', new ExternalRef('stage_staff', '17'), quantity: '1');
+        $byId    = WarehouseRequests::issueReserved(self::ITEM, 'res-1', new ExternalRef('stage_staff', '17'));
+        $cancel  = WarehouseRequests::cancelReservationBySource(self::ITEM, 'stage_item', 's-1');
+
+        $this->assertSame('warehouse_item:' . self::ITEM, $reserve->stream);
+        $this->assertSame($reserve->stream, $issue->stream);
+        $this->assertSame($reserve->stream, $cancel->stream);
+        $this->assertNotNull($reserve->idempotencyKey);
+        $this->assertSame(
+            [
+                'item_id'     => self::ITEM,
+                'location_id' => 'loc-1',
+                'holder'      => ['type' => 'stage', 'id' => '3', 'label' => 'Этап 3'],
+                'quantity'    => '4',
+                'expires_at'  => '2026-11-03T20:00:00+05:00',
+                'source_type' => 'stage_item',
+                'source_id'   => 's-1',
+            ],
+            $reserve->body
+        );
+        $this->assertSame(
+            [
+                'type'                    => 'issue',
+                'item_id'                 => self::ITEM,
+                'reservation_source_type' => 'stage_item',
+                'reservation_source_id'   => 's-1',
+                'recipient'               => ['type' => 'stage_staff', 'id' => '17', 'label' => null],
+                'quantity'                => '1',
+            ],
+            $issue->body
+        );
+        $this->assertSame('res-1', $byId->body['reservation_id']);
+        $this->assertArrayNotHasKey('from_location_id', $byId->body);
+        $this->assertSame(['POST', '/v1/warehouse/reservations/cancel'], [$cancel->method, $cancel->path]);
+        $this->assertSame(['source_type' => 'stage_item', 'source_id' => 's-1'], $cancel->body);
+        $this->assertSame('/v1/warehouse/reservations/res-1/cancel', WarehouseRequests::cancelReservation(self::ITEM, 'res-1')->path);
+    }
+
+    public function testOnlyAConflictOfAReservationNotThereYetIsRetried(): void
+    {
+        $this->assertTrue((new ApiErrorException(409, 'reservation_not_found', 'x'))->isRetriable());
+        $this->assertFalse((new ApiErrorException(404, 'reservation_not_found', 'x'))->isRetriable());
+        $this->assertFalse((new ApiErrorException(409, 'reservation_closed', 'x'))->isRetriable());
+    }
+
+    public function testReservationsAndBalancesParseWhatIsHeld(): void
+    {
+        $client      = $this->client();
+        $reservation = [
+            'id'              => 'res-1',
+            'item_id'         => self::ITEM,
+            'unit_id'         => null,
+            'location_id'     => 'loc-1',
+            'holder'          => ['type' => 'stage', 'id' => '3', 'label' => 'Этап 3'],
+            'quantity'        => '4.000',
+            'issued_quantity' => '1.000',
+            'remaining'       => '3.000',
+            'status'          => 'active',
+            'expires_at'      => null,
+            'source_type'     => 'stage_item',
+            'source_id'       => 's-1',
+            'comment'         => null,
+            'actor'           => ['id' => '1', 'name' => 'Кладовщик'],
+            'created_at'      => '2026-10-20T10:00:00+00:00',
+            'closed_at'       => null,
+        ];
+        $this->mock->append(
+            self::jsonResponse(200, ['data' => [$reservation]]),
+            self::jsonResponse(200, ['data' => ['status' => 'cancelled', 'remaining' => '0.000', 'closed_at' => '2026-10-20T11:00:00+00:00'] + $reservation]),
+            self::jsonResponse(200, ['data' => [['item_id' => self::ITEM, 'location_id' => 'loc-1', 'quantity' => '10.000', 'avg_cost' => '5.0000', 'reserved' => '3.000', 'available' => '7.000']]])
+        );
+        $warehouse = $client->forTenant('org-1')->warehouse();
+
+        $list = $warehouse->reservations(activeOnly: true, holder: new ExternalRef('stage', '3'));
+        $this->assertSame('active=1&holder=stage%3A3', $this->sentRequest()->getUri()->getQuery());
+        $this->assertTrue($list[0]->isActive());
+        $this->assertSame('3.000', $list[0]->remaining);
+        $this->assertSame('Этап 3', $list[0]->holder->label);
+
+        $cancelled = $warehouse->cancelReservation(self::ITEM, 'res-1');
+        $this->assertFalse($cancelled->isActive());
+        $this->assertSame('/v1/warehouse/reservations/res-1/cancel', $this->sentRequest(1)->getUri()->getPath());
+
+        $balance = $warehouse->balances(self::ITEM)[0];
+        $this->assertSame(['3.000', '7.000'], [$balance->reserved, $balance->available]);
+    }
 }

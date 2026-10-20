@@ -272,6 +272,77 @@ final class WarehouseRequests
     }
 
     /**
+     * An issue by a reservation: from its place, without a quantity — what is left of it, a serial one — its unit.
+     */
+    public static function issueReserved(
+        string $itemId,
+        string $reservationId,
+        ExternalRef $recipient,
+        ?string $quantity = null,
+        ?string $unitId = null,
+        ?string $dueAt = null,
+        ?string $sourceType = null,
+        ?string $sourceId = null,
+        ?ExternalRef $externalRef = null,
+        ?string $comment = null,
+        ?string $occurredAt = null,
+    ): OutgoingRequest {
+        return self::movement(
+            'issue',
+            $itemId,
+            [
+            'reservation_id' => $reservationId,
+            'recipient'      => $recipient->toArray(),
+            'quantity'       => $quantity,
+            'unit_id'        => $unitId,
+            'due_at'         => $dueAt,
+            ],
+            $sourceType,
+            $sourceId,
+            $externalRef,
+            $comment,
+            $occurredAt
+        );
+    }
+
+    /**
+     * An issue by the reservation made with this source, for the outbox: it goes right behind the reservation in the
+     * stream of the item before its id is known. The reservation not there yet — `409 reservation_not_found`, retried.
+     */
+    public static function issueReservedBySource(
+        string $itemId,
+        string $reservationSourceType,
+        string $reservationSourceId,
+        ExternalRef $recipient,
+        ?string $quantity = null,
+        ?string $unitId = null,
+        ?string $dueAt = null,
+        ?string $sourceType = null,
+        ?string $sourceId = null,
+        ?ExternalRef $externalRef = null,
+        ?string $comment = null,
+        ?string $occurredAt = null,
+    ): OutgoingRequest {
+        return self::movement(
+            'issue',
+            $itemId,
+            [
+            'reservation_source_type' => $reservationSourceType,
+            'reservation_source_id'   => $reservationSourceId,
+            'recipient'               => $recipient->toArray(),
+            'quantity'                => $quantity,
+            'unit_id'                 => $unitId,
+            'due_at'                  => $dueAt,
+            ],
+            $sourceType,
+            $sourceId,
+            $externalRef,
+            $comment,
+            $occurredAt
+        );
+    }
+
+    /**
      * A return of an issue: without a quantity — what is left of it, without a place — where it was issued from.
      *
      * @param  'ok'|'damaged'|'in_repair'|null  $condition  of a serial unit
@@ -471,6 +542,94 @@ final class WarehouseRequests
                 'item_id'   => $itemId,
             ]
         );
+    }
+
+    /**
+     * Holds stock at a place for `holder` (e.g. a stage) until it is issued by the reservation, cancelled or
+     * `expiresAt`. A quantity item — `quantity`; a serial one — one unit by `unitId`, or a whole `quantity` of its
+     * free units. Goes in the stream of the item: an issue by it never overtakes it.
+     */
+    public static function reserve(
+        string $itemId,
+        string $locationId,
+        ExternalRef $holder,
+        ?string $quantity = null,
+        ?string $unitId = null,
+        ?string $expiresAt = null,
+        ?string $sourceType = null,
+        ?string $sourceId = null,
+        ?string $comment = null,
+    ): OutgoingRequest {
+        return OutgoingRequest::create(
+            '/v1/warehouse/reservations',
+            array_filter(
+                [
+                    'item_id'     => $itemId,
+                    'location_id' => $locationId,
+                    'holder'      => $holder->toArray(),
+                    'quantity'    => $quantity,
+                    'unit_id'     => $unitId,
+                    'expires_at'  => $expiresAt,
+                    'source_type' => $sourceType,
+                    'source_id'   => $sourceId,
+                    'comment'     => $comment,
+                ],
+                fn (mixed $value): bool => $value !== null
+            ),
+            'warehouse_item:' . $itemId
+        );
+    }
+
+    /**
+     * What is left of the reservation is free again. Idempotent by itself: a reservation that holds nothing is
+     * returned as it is.
+     */
+    public static function cancelReservation(string $itemId, string $id): OutgoingRequest
+    {
+        return self::reservationAction('/v1/warehouse/reservations/' . rawurlencode($id) . '/cancel', [], $itemId);
+    }
+
+    /**
+     * A cancel of the reservation made with this source, for the outbox: before its id is known. The reservation not
+     * there yet — `409 reservation_not_found`, retried.
+     */
+    public static function cancelReservationBySource(string $itemId, string $sourceType, string $sourceId): OutgoingRequest
+    {
+        return self::reservationAction(
+            '/v1/warehouse/reservations/cancel',
+            ['source_type' => $sourceType, 'source_id' => $sourceId],
+            $itemId
+        );
+    }
+
+    public static function reservations(
+        bool $activeOnly = false,
+        ?string $itemId = null,
+        ?string $locationId = null,
+        ?ExternalRef $holder = null,
+    ): OutgoingRequest {
+        return OutgoingRequest::read(
+            '/v1/warehouse/reservations',
+            [
+                'active'      => $activeOnly ? 1 : null,
+                'item_id'     => $itemId,
+                'location_id' => $locationId,
+                'holder'      => $holder?->key(),
+            ]
+        );
+    }
+
+    public static function getReservation(string $id): OutgoingRequest
+    {
+        return OutgoingRequest::read('/v1/warehouse/reservations/' . rawurlencode($id));
+    }
+
+    /**
+     * @param  array<string, mixed>  $body
+     */
+    private static function reservationAction(string $path, array $body, string $itemId): OutgoingRequest
+    {
+        return new OutgoingRequest('POST', $path, [], $body, null, null, null, 'warehouse_item:' . $itemId);
     }
 
     /**

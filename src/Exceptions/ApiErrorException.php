@@ -23,6 +23,14 @@ class ApiErrorException extends BackOfficeException
     ];
 
     /**
+     * Retriable only as a `409`: the reservation of an issue or of a cancel by source has not arrived yet. The same
+     * code with `404` is an unknown id, it never comes.
+     */
+    private const RETRIABLE_CONFLICTS = [
+        'reservation_not_found',
+    ];
+
+    /**
      * @param  array<string, mixed>  $details
      */
     public function __construct(
@@ -59,6 +67,8 @@ class ApiErrorException extends BackOfficeException
      */
     public function isRetriable(): bool
     {
-        return \in_array($this->errorCode, self::RETRIABLE_CODES, true) || $this->status === 429;
+        return \in_array($this->errorCode, self::RETRIABLE_CODES, true)
+            || ($this->status === 409 && \in_array($this->errorCode, self::RETRIABLE_CONFLICTS, true))
+            || $this->status === 429;
     }
 }

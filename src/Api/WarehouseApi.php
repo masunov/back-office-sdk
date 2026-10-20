@@ -13,6 +13,7 @@ use Mnd\BackOffice\Dto\WarehouseItem;
 use Mnd\BackOffice\Dto\WarehouseItemInput;
 use Mnd\BackOffice\Dto\WarehouseLocation;
 use Mnd\BackOffice\Dto\WarehouseMovement;
+use Mnd\BackOffice\Dto\WarehouseReservation;
 use Mnd\BackOffice\Dto\WarehouseUnit;
 use Mnd\BackOffice\Http\OutgoingRequest;
 use Mnd\BackOffice\Http\Transport;
@@ -136,8 +137,8 @@ final class WarehouseApi
     }
 
     /**
-     * Sends a movement built by WarehouseRequests (`receipt`, `writeOff`, `transfer`, `issue`, `returnIssue`,
-     * `inventory`, `adjustment`).
+     * Sends a movement built by WarehouseRequests (`receipt`, `writeOff`, `transfer`, `issue`, `issueReserved`,
+     * `returnIssue`, `inventory`, `adjustment`).
      *
      * @return WarehouseMovement|null null — an inventory without a difference wrote nothing
      */
@@ -221,6 +222,40 @@ final class WarehouseApi
             fn (array $issue): WarehouseIssue => WarehouseIssue::fromArray($issue),
             $this->send(WarehouseRequests::issues($openOnly, $overdueOnly, $recipient, $itemId))['data']
         );
+    }
+
+    /**
+     * Sends a reservation built by `WarehouseRequests::reserve()` at once, when a person waits for «not enough free
+     * at the place».
+     */
+    public function reserve(OutgoingRequest $reservation): WarehouseReservation
+    {
+        return WarehouseReservation::fromArray($this->send($reservation)['data']);
+    }
+
+    public function cancelReservation(string $itemId, string $id): WarehouseReservation
+    {
+        return WarehouseReservation::fromArray($this->send(WarehouseRequests::cancelReservation($itemId, $id))['data']);
+    }
+
+    /**
+     * @return list<WarehouseReservation>
+     */
+    public function reservations(
+        bool $activeOnly = false,
+        ?string $itemId = null,
+        ?string $locationId = null,
+        ?ExternalRef $holder = null,
+    ): array {
+        return array_map(
+            fn (array $reservation): WarehouseReservation => WarehouseReservation::fromArray($reservation),
+            $this->send(WarehouseRequests::reservations($activeOnly, $itemId, $locationId, $holder))['data']
+        );
+    }
+
+    public function reservation(string $id): WarehouseReservation
+    {
+        return WarehouseReservation::fromArray($this->send(WarehouseRequests::getReservation($id))['data']);
     }
 
     /**

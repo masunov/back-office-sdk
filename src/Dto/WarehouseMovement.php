@@ -31,6 +31,7 @@ final class WarehouseMovement
         public readonly Actor $actor,
         public readonly string $occurredAt,
         public readonly array $balances = [],
+        public readonly ?string $reservationId = null,
     ) {
     }
 
@@ -56,7 +57,8 @@ final class WarehouseMovement
             $data['comment'] ?? null,
             new Actor($data['actor']['id'] ?? null, $data['actor']['name'] ?? null),
             $data['occurred_at'],
-            array_map(fn (array $balance): WarehouseBalance => WarehouseBalance::fromArray($balance), $data['balances'] ?? [])
+            array_map(fn (array $balance): WarehouseBalance => WarehouseBalance::fromArray($balance), $data['balances'] ?? []),
+            $data['reservation_id'] ?? null
         );
     }
 }
