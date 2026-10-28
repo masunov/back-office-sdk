@@ -18,6 +18,7 @@ final class Booking
 
     /**
      * @param  array<string, mixed>  $metadata
+     * @param  list<string>  $extraResourceRefs  more resources the booking holds, e.g. an instructor beside a car
      */
     public function __construct(
         public readonly string $id,
@@ -38,6 +39,7 @@ final class Booking
         public readonly ?string $holdExpiresAt,
         public readonly Actor $createdBy,
         public readonly int $version,
+        public readonly array $extraResourceRefs = [],
     ) {
     }
 
@@ -64,12 +66,13 @@ final class Booking
             (bool) $data['blocking'],
             $data['hold_expires_at'] ?? null,
             new Actor($data['created_by']['id'] ?? null, $data['created_by']['name'] ?? null),
-            (int) $data['version']
+            (int) $data['version'],
+            array_values($data['extra_resource_refs'] ?? [])
         );
     }
 
     /**
-     * Held or confirmed: takes its place and resource.
+     * Held or confirmed: takes its place and resources.
      */
     public function isActive(): bool
     {

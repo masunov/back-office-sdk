@@ -147,6 +147,25 @@ class TimetableTest extends TestCase
         $this->assertStringContainsString('blocking=0', $this->sentRequest(1)->getUri()->getQuery());
     }
 
+    public function testExtraResourcesAreSentAndParsed(): void
+    {
+        $id   = '01a14000-0000-7000-8000-0000000000b1';
+        $hold = TimetableRequests::hold('track-1', 'a', 'b', 'A', 300, 'car-1', extraResourceRefs: ['instructor-1']);
+
+        $this->assertSame(['instructor-1'], $hold->body['extra_resource_refs']);
+        $this->assertArrayNotHasKey('extra_resource_refs', TimetableRequests::book('track-1', 'a', 'b', 'A')->body);
+        $this->assertArrayNotHasKey('extra_resource_refs', TimetableRequests::reschedule($id, 'a', 'b', 2)->body);
+        $this->assertSame([], TimetableRequests::reschedule($id, 'a', 'b', 2, false, [])->body['extra_resource_refs']);
+        $this->assertSame(
+            ['instructor-1'],
+            TimetableRequests::slots('track-1', '2026-11-03', 60, true, ['car-1'], ['instructor-1'])->query['extra_resource_refs']
+        );
+
+        $client = $this->client();
+        $this->mock->append(self::jsonResponse(200, ['data' => self::bookingData(['extra_resource_refs' => ['instructor-1']])]));
+        $this->assertSame(['instructor-1'], $client->forTenant('school-1')->timetable()->booking($id)->extraResourceRefs);
+    }
+
     public function testRuleInputOmitsWhatIsNotSet(): void
     {
         $this->assertSame(

@@ -83,6 +83,7 @@ final class TimetableRequests
     /**
      * @param  int  $duration  minutes
      * @param  list<string>  $resourceRefs  the pool of resources, e.g. the cars of the window
+     * @param  list<string>  $extraResourceRefs  a second pool, e.g. the instructors: a slot needs one free of each
      */
     public static function slots(
         string $locationId,
@@ -90,6 +91,7 @@ final class TimetableRequests
         int $duration,
         bool $blocking = true,
         array $resourceRefs = [],
+        array $extraResourceRefs = [],
     ): OutgoingRequest {
         return OutgoingRequest::read(
             '/v1/timetable/slots',
@@ -99,6 +101,7 @@ final class TimetableRequests
                 'duration'      => $duration,
                 'blocking'      => $blocking ? null : 0,
                 'resource_refs' => $resourceRefs === [] ? null : $resourceRefs,
+                'extra_resource_refs' => $extraResourceRefs === [] ? null : $extraResourceRefs,
             ]
         );
     }
@@ -140,6 +143,7 @@ final class TimetableRequests
      * A confirmed booking. Times ISO 8601 with an offset.
      *
      * @param  array<string, mixed>  $metadata
+     * @param  list<string>  $extraResourceRefs  more resources it takes besides `$resourceRef`, e.g. an instructor
      */
     public static function book(
         string $locationId,
@@ -151,6 +155,7 @@ final class TimetableRequests
         array $metadata = [],
         bool $blocking = true,
         ?string $description = null,
+        array $extraResourceRefs = [],
     ): OutgoingRequest {
         return self::createBooking(
             'confirmed',
@@ -163,7 +168,8 @@ final class TimetableRequests
             $externalRef,
             $metadata,
             $blocking,
-            $description
+            $description,
+            $extraResourceRefs
         );
     }
 
@@ -172,6 +178,7 @@ final class TimetableRequests
      * (back-office ROADMAP.md, 4.5).
      *
      * @param  array<string, mixed>  $metadata
+     * @param  list<string>  $extraResourceRefs  more resources it takes besides `$resourceRef`, e.g. an instructor
      */
     public static function hold(
         string $locationId,
@@ -184,6 +191,7 @@ final class TimetableRequests
         array $metadata = [],
         bool $blocking = true,
         ?string $description = null,
+        array $extraResourceRefs = [],
     ): OutgoingRequest {
         return self::createBooking(
             'held',
@@ -196,7 +204,8 @@ final class TimetableRequests
             $externalRef,
             $metadata,
             $blocking,
-            $description
+            $description,
+            $extraResourceRefs
         );
     }
 
@@ -231,6 +240,7 @@ final class TimetableRequests
     /**
      * @param  int  $version  the version of the booking the project saw
      * @param  string|false|null  $resourceRef  false — the booking keeps its resource, null — frees it
+     * @param  list<string>|null  $extraResourceRefs  null — the booking keeps its extra resources; a list replaces them
      */
     public static function reschedule(
         string $id,
@@ -238,11 +248,16 @@ final class TimetableRequests
         string $endsAt,
         int $version,
         string|false|null $resourceRef = false,
+        ?array $extraResourceRefs = null,
     ): OutgoingRequest {
         $body = ['starts_at' => $startsAt, 'ends_at' => $endsAt, 'version' => $version];
 
         if ($resourceRef !== false) {
             $body['resource_ref'] = $resourceRef;
+        }
+
+        if ($extraResourceRefs !== null) {
+            $body['extra_resource_refs'] = array_values($extraResourceRefs);
         }
 
         return new OutgoingRequest(
@@ -259,6 +274,7 @@ final class TimetableRequests
 
     /**
      * @param  array<string, mixed>  $metadata
+     * @param  list<string>  $extraResourceRefs
      */
     private static function createBooking(
         string $status,
@@ -272,6 +288,7 @@ final class TimetableRequests
         array $metadata,
         bool $blocking,
         ?string $description,
+        array $extraResourceRefs,
     ): OutgoingRequest {
         return OutgoingRequest::create(
             '/v1/timetable/bookings',
@@ -286,6 +303,7 @@ final class TimetableRequests
                     'description'  => $description,
                     'blocking'     => $blocking ? null : false,
                     'resource_ref' => $resourceRef,
+                    'extra_resource_refs' => $extraResourceRefs === [] ? null : array_values($extraResourceRefs),
                     'external_ref' => $externalRef?->toArray(),
                     'metadata'     => $metadata === [] ? null : $metadata,
                 ],

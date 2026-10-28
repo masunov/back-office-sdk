@@ -81,6 +81,7 @@ final class TimetableApi
 
     /**
      * @param  list<string>  $resourceRefs
+     * @param  list<string>  $extraResourceRefs  a second pool, e.g. the instructors
      * @return list<Slot>
      */
     public function slots(
@@ -89,10 +90,13 @@ final class TimetableApi
         int $duration,
         bool $blocking = true,
         array $resourceRefs = [],
+        array $extraResourceRefs = [],
     ): array {
         return array_map(
             fn (array $slot): Slot => Slot::fromArray($slot),
-            $this->send(TimetableRequests::slots($locationId, $date, $duration, $blocking, $resourceRefs))['data']
+            $this->send(
+                TimetableRequests::slots($locationId, $date, $duration, $blocking, $resourceRefs, $extraResourceRefs)
+            )['data']
         );
     }
 
@@ -132,6 +136,7 @@ final class TimetableApi
 
     /**
      * @param  array<string, mixed>  $metadata
+     * @param  list<string>  $extraResourceRefs
      */
     public function book(
         string $locationId,
@@ -143,6 +148,7 @@ final class TimetableApi
         array $metadata = [],
         bool $blocking = true,
         ?string $description = null,
+        array $extraResourceRefs = [],
     ): Booking {
         return $this->bookingOf(
             TimetableRequests::book(
@@ -154,13 +160,15 @@ final class TimetableApi
                 $externalRef,
                 $metadata,
                 $blocking,
-                $description
+                $description,
+                $extraResourceRefs
             )
         );
     }
 
     /**
      * @param  array<string, mixed>  $metadata
+     * @param  list<string>  $extraResourceRefs
      */
     public function hold(
         string $locationId,
@@ -173,6 +181,7 @@ final class TimetableApi
         array $metadata = [],
         bool $blocking = true,
         ?string $description = null,
+        array $extraResourceRefs = [],
     ): Booking {
         return $this->bookingOf(
             TimetableRequests::hold(
@@ -185,7 +194,8 @@ final class TimetableApi
                 $externalRef,
                 $metadata,
                 $blocking,
-                $description
+                $description,
+                $extraResourceRefs
             )
         );
     }
@@ -216,6 +226,7 @@ final class TimetableApi
 
     /**
      * @param  string|false|null  $resourceRef  false — the booking keeps its resource, null — frees it
+     * @param  list<string>|null  $extraResourceRefs  null — the booking keeps its extra resources
      */
     public function reschedule(
         string $id,
@@ -223,8 +234,11 @@ final class TimetableApi
         string $endsAt,
         int $version,
         string|false|null $resourceRef = false,
+        ?array $extraResourceRefs = null,
     ): Booking {
-        return $this->bookingOf(TimetableRequests::reschedule($id, $startsAt, $endsAt, $version, $resourceRef));
+        return $this->bookingOf(
+            TimetableRequests::reschedule($id, $startsAt, $endsAt, $version, $resourceRef, $extraResourceRefs)
+        );
     }
 
     /**

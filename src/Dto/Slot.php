@@ -5,12 +5,13 @@ declare(strict_types=1);
 namespace Mnd\BackOffice\Dto;
 
 /**
- * A free slot: its time, the rule of its window, free places and the free resources of the pool asked for.
+ * A free slot: its time, the rule of its window, free places and the free resources of each pool asked for.
  */
 final class Slot
 {
     /**
      * @param  list<string>  $freeResourceRefs
+     * @param  list<string>  $freeExtraResourceRefs  of the second pool, e.g. the instructors
      */
     public function __construct(
         public readonly string $startsAt,
@@ -18,6 +19,7 @@ final class Slot
         public readonly string $workScheduleId,
         public readonly int $freeEntries,
         public readonly array $freeResourceRefs,
+        public readonly array $freeExtraResourceRefs = [],
     ) {
     }
 
@@ -31,7 +33,8 @@ final class Slot
             $data['ends_at'],
             $data['work_schedule_id'],
             (int) $data['free_entries'],
-            array_values($data['free_resource_refs'] ?? [])
+            array_values($data['free_resource_refs'] ?? []),
+            array_values($data['free_extra_resource_refs'] ?? [])
         );
     }
 }
