@@ -1,8 +1,7 @@
 # mnd/back-office-sdk
 
 PHP SDK сервиса back-office с адаптером Laravel: клиент, DTO, проверка подписи вебхуков, ретраи чтения,
-circuit breaker и исходящая очередь. Контракт API — `docs/openapi.yaml`
-в репозитории сервиса.
+circuit breaker и исходящая очередь.
 
 PHP 8.2+, Laravel 10–13. Ядро (клиент, DTO, вебхуки) работает и без Laravel.
 
