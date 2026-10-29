@@ -126,6 +126,9 @@ $tt->createWorkSchedule(WorkScheduleInput::nonWorking('track-1', '2026-11-01', '
 // Свободные слоты с пулом машин окна; время — со смещением площадки.
 $slots = $tt->slots('track-1', '2026-11-03', duration: 60, resourceRefs: ['car-1', 'car-2', 'car-3']);
 
+// Графики нескольких площадок за одни даты — одним запросом, в порядке переданных id.
+$calendars = $tt->calendars(['track-1', 'track-2'], '2026-11-02', '2026-11-08');
+
 // Запись с проверкой у проекта (баланс сертификата): холд → своя транзакция → confirm или cancel.
 $booking = $tt->hold('track-1', $slots[0]->startsAt, $slots[0]->endsAt, 'Иванов — 000123',
     ttl: 300, resourceRef: $slots[0]->freeResourceRefs[0], externalRef: new ExternalRef('certificate', $cert->id));

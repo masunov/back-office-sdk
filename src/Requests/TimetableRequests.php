@@ -81,6 +81,17 @@ final class TimetableRequests
     }
 
     /**
+     * @param  list<string>  $locationIds  1–50 locations of the tenant, the same dates for each
+     */
+    public static function calendars(array $locationIds, string $from, string $to): OutgoingRequest
+    {
+        return OutgoingRequest::read(
+            '/v1/timetable/calendars',
+            ['location_ids' => array_values($locationIds), 'from' => $from, 'to' => $to]
+        );
+    }
+
+    /**
      * @param  int  $duration  minutes
      * @param  list<string>  $resourceRefs  the pool of resources, e.g. the cars of the window
      * @param  list<string>  $extraResourceRefs  a second pool, e.g. the instructors: a slot needs one free of each

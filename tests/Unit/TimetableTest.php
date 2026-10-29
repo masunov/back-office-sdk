@@ -147,6 +147,33 @@ class TimetableTest extends TestCase
         $this->assertStringContainsString('blocking=0', $this->sentRequest(1)->getUri()->getQuery());
     }
 
+    public function testCalendarsOfSeveralLocationsComeInOneRequest(): void
+    {
+        $client = $this->client();
+        $day    = ['date' => '2026-11-03', 'working' => [['work_schedule_id' => 'r1', 'starts_at' => '2026-11-03T10:00:00+03:00', 'ends_at' => '2026-11-03T18:00:00+03:00', 'max_entries' => 2]], 'non_working' => [], 'bookings' => []];
+        $this->mock->append(
+            self::jsonResponse(
+                200,
+                ['data' => [
+                    ['location_id' => 'track-2', 'timezone' => 'Europe/Moscow', 'days' => [$day]],
+                    ['location_id' => 'track-1', 'timezone' => 'Europe/Moscow', 'days' => [['date' => '2026-11-03', 'working' => [], 'non_working' => [], 'bookings' => []]]],
+                ]]
+            )
+        );
+
+        $calendars = $client->forTenant('school-1')->timetable()->calendars(['track-2', 'track-1'], '2026-11-03', '2026-11-03');
+
+        $this->assertSame('GET', $this->sentRequest()->getMethod());
+        $this->assertSame('/v1/timetable/calendars', $this->sentRequest()->getUri()->getPath());
+        $this->assertSame(
+            'location_ids%5B%5D=track-2&location_ids%5B%5D=track-1&from=2026-11-03&to=2026-11-03',
+            $this->sentRequest()->getUri()->getQuery()
+        );
+        $this->assertSame(['track-2', 'track-1'], array_map(fn ($calendar): string => $calendar->locationId, $calendars));
+        $this->assertSame(2, $calendars[0]->days[0]->working[0]['max_entries']);
+        $this->assertSame([], $calendars[1]->days[0]->working);
+    }
+
     public function testExtraResourcesAreSentAndParsed(): void
     {
         $id   = '01a14000-0000-7000-8000-0000000000b1';

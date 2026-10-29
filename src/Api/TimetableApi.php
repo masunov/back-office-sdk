@@ -10,6 +10,7 @@ use Mnd\BackOffice\Dto\BookingPage;
 use Mnd\BackOffice\Dto\CalendarDay;
 use Mnd\BackOffice\Dto\CloseResult;
 use Mnd\BackOffice\Dto\ExternalRef;
+use Mnd\BackOffice\Dto\LocationCalendar;
 use Mnd\BackOffice\Dto\Slot;
 use Mnd\BackOffice\Dto\WorkSchedule;
 use Mnd\BackOffice\Dto\WorkScheduleInput;
@@ -76,6 +77,20 @@ final class TimetableApi
         return array_map(
             fn (array $day): CalendarDay => CalendarDay::fromArray($day),
             $this->send(TimetableRequests::calendar($locationId, $from, $to))['data']['days']
+        );
+    }
+
+    /**
+     * The calendars of several locations in one request, in the order given.
+     *
+     * @param  list<string>  $locationIds
+     * @return list<LocationCalendar>
+     */
+    public function calendars(array $locationIds, string $from, string $to): array
+    {
+        return array_map(
+            fn (array $calendar): LocationCalendar => LocationCalendar::fromArray($calendar),
+            $this->send(TimetableRequests::calendars($locationIds, $from, $to))['data']
         );
     }
 
