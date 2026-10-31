@@ -11,6 +11,7 @@ use Mnd\BackOffice\Dto\WarehouseBalance;
 use Mnd\BackOffice\Dto\WarehouseIssue;
 use Mnd\BackOffice\Dto\WarehouseItem;
 use Mnd\BackOffice\Dto\WarehouseItemInput;
+use Mnd\BackOffice\Dto\WarehouseLabel;
 use Mnd\BackOffice\Dto\WarehouseLocation;
 use Mnd\BackOffice\Dto\WarehouseMovement;
 use Mnd\BackOffice\Dto\WarehouseReservation;
@@ -314,6 +315,64 @@ final class WarehouseApi
             array_map(fn (array $reservation): WarehouseReservation => WarehouseReservation::fromArray($reservation), $data['data']),
             $data['meta']['next_cursor'] ?? null,
         ];
+    }
+
+    /**
+     * A batch of free QR labels for the project to print: the batch and its labels by number.
+     *
+     * @return array{0: string, 1: list<WarehouseLabel>}
+     */
+    public function issueLabels(int $count): array
+    {
+        $data = $this->send(WarehouseRequests::issueLabels($count))['data'];
+
+        return [$data['batch_id'], array_map(fn (array $label): WarehouseLabel => WarehouseLabel::fromArray($label), $data['labels'])];
+    }
+
+    /**
+     * A page of labels by number and the cursor of the next one.
+     *
+     * @param  'available'|'assigned'|'retired'|null  $status
+     * @return array{0: list<WarehouseLabel>, 1: string|null}
+     */
+    public function labels(
+        ?string $status = null,
+        ?string $batchId = null,
+        ?string $unitId = null,
+        ?int $perPage = null,
+        ?string $cursor = null,
+    ): array {
+        $data = $this->send(WarehouseRequests::labels($status, $batchId, $unitId, $perPage, $cursor));
+
+        return [
+            array_map(fn (array $label): WarehouseLabel => WarehouseLabel::fromArray($label), $data['data']),
+            $data['meta']['next_cursor'] ?? null,
+        ];
+    }
+
+    /**
+     * A scan: the label and, if it is or was on one, the card of its unit (`$label->unit`). No such label of the
+     * tenant — ApiErrorException `label_not_found`.
+     */
+    public function resolveLabel(string $code): WarehouseLabel
+    {
+        return WarehouseLabel::fromArray($this->send(WarehouseRequests::resolveLabel($code))['data']);
+    }
+
+    /**
+     * At once, when a person scanned it: taken by another unit or retired — ApiErrorException `label_unavailable`.
+     */
+    public function assignLabel(string $code, string $unitId, ?string $comment = null): WarehouseLabel
+    {
+        return WarehouseLabel::fromArray($this->send(WarehouseRequests::assignLabel($code, $unitId, $comment))['data']);
+    }
+
+    /**
+     * @param  'lost'|'damaged'|'other'  $reason
+     */
+    public function retireLabel(string $code, string $reason, ?string $comment = null): WarehouseLabel
+    {
+        return WarehouseLabel::fromArray($this->send(WarehouseRequests::retireLabel($code, $reason, $comment))['data']);
     }
 
     public function reservation(string $id): WarehouseReservation

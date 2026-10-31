@@ -199,6 +199,15 @@ do {
     [$units, $cursor] = $wh->unitsPage(locationId: $store->id, perPage: 200, cursor: $cursor);
     // …
 } while ($cursor !== null);
+
+// Метки QR: партия для печати (PDF делает проект), скан, назначение, замена.
+[$batchId, $labels] = $wh->issueLabels(48);            // $label->code — в QR, $label->shortCode (Q-000017) — на наклейку
+$label = $wh->resolveLabel($scanned);                  // код QR или короткий код; $label->unit — карточка единицы
+if ($label->isAvailable()) {
+    $wh->assignLabel($label->code, $unit->id);         // прежняя метка единицы снимается как replaced
+}
+$wh->retireLabel($lost->code, 'lost');                 // навсегда; снятая метка не назначается снова
+// label_not_found, label_unavailable (назначена другой единице или снята), unit_unavailable (единица списана)
 $wh->setUnitCondition($unitId, 'in_repair', 'Не включается');                       // состояние единицы на месте
 ```
 

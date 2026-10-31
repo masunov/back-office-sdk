@@ -13,11 +13,13 @@ final class UnitHistory
     /**
      * @param  list<WarehouseMovement>  $movements
      * @param  list<array<string, mixed>>  $conditions
+     * @param  list<WarehouseLabel>  $labels  every label the unit had, in the order they were assigned
      */
     public function __construct(
         public readonly WarehouseUnit $unit,
         public readonly array $movements,
         public readonly array $conditions,
+        public readonly array $labels = [],
     ) {
     }
 
@@ -29,7 +31,8 @@ final class UnitHistory
         return new self(
             WarehouseUnit::fromArray($data['unit']),
             array_map(fn (array $movement): WarehouseMovement => WarehouseMovement::fromArray($movement), $data['movements']),
-            array_values($data['conditions'] ?? [])
+            array_values($data['conditions'] ?? []),
+            array_map(fn (array $label): WarehouseLabel => WarehouseLabel::fromArray($label), $data['labels'] ?? [])
         );
     }
 }

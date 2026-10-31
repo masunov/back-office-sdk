@@ -16,6 +16,10 @@ final class WarehouseUnit
         public readonly string $condition,
         public readonly ?string $locationId,
         public readonly ?string $issueId,
+        /** The short code of the QR label on the unit now (Q-000017); null — none, or a service before labels. */
+        public readonly ?string $labelShortCode = null,
+        /** The code of that label, what its QR holds. */
+        public readonly ?string $labelCode = null,
     ) {
     }
 
@@ -30,7 +34,9 @@ final class WarehouseUnit
             $data['serial_number'],
             $data['condition'],
             $data['location_id'] ?? null,
-            $data['issue_id'] ?? null
+            $data['issue_id'] ?? null,
+            $data['label']['short_code'] ?? null,
+            $data['label']['code'] ?? null
         );
     }
 }

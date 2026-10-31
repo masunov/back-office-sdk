@@ -192,6 +192,44 @@ class WarehouseTest extends TestCase
         $this->assertSame('Не включается', $history->conditions[0]['comment']);
     }
 
+    public function testLabelsAreIssuedResolvedAssignedAndRetired(): void
+    {
+        $warehouse = $this->client()->forTenant('org-1')->warehouse();
+        $label     = ['id' => 'l1', 'code' => '7K2QX9M4H1PZB3TR', 'short_code' => 'Q-000001', 'batch_id' => 'b1', 'status' => 'available', 'unit_id' => null];
+        $unit      = ['id' => 'u1', 'item_id' => self::ITEM, 'serial_number' => 'T-1', 'condition' => 'ok', 'location_id' => 'loc-1', 'issue_id' => null];
+        $assigned  = ['status' => 'assigned', 'unit_id' => 'u1', 'assigned_at' => '2026-11-01T10:00:00+00:00'] + $label;
+        $this->mock->append(
+            self::jsonResponse(201, ['data' => ['batch_id' => 'b1', 'labels' => [$label]]]),
+            self::jsonResponse(200, ['data' => [...$assigned, 'unit' => [...$unit, 'label' => ['code' => $label['code'], 'short_code' => 'Q-000001']]]]),
+            self::jsonResponse(200, ['data' => $assigned]),
+            self::jsonResponse(200, ['data' => ['status' => 'retired', 'retire_reason' => 'lost', 'retired_at' => '2026-11-02T10:00:00+00:00'] + $assigned])
+        );
+
+        [$batch, $labels] = $warehouse->issueLabels(1);
+        $this->assertSame(['b1', 'Q-000001', true], [$batch, $labels[0]->shortCode, $labels[0]->isAvailable()]);
+        $this->assertSame('{"count":1}', (string) $this->sentRequest()->getBody());
+        $this->assertNotSame('', $this->sentRequest()->getHeaderLine('Idempotency-Key'));
+
+        $scanned = $warehouse->resolveLabel('Q-1');
+        $this->assertSame('/v1/warehouse/labels/Q-1', $this->sentRequest(1)->getUri()->getPath());
+        $this->assertSame(['u1', 'Q-000001'], [$scanned->unit?->id, $scanned->unit?->labelShortCode]);
+
+        $this->assertSame('assigned', $warehouse->assignLabel($label['code'], 'u1')->status);
+        $this->assertSame('/v1/warehouse/labels/7K2QX9M4H1PZB3TR/assign', $this->sentRequest(2)->getUri()->getPath());
+        $this->assertSame('{"unit_id":"u1"}', (string) $this->sentRequest(2)->getBody());
+
+        $retired = $warehouse->retireLabel($label['code'], 'lost');
+        $this->assertSame(['retired', 'lost', 'u1'], [$retired->status, $retired->retireReason, $retired->unitId]);
+    }
+
+    public function testLabelAssignmentGoesInTheStreamOfTheUnit(): void
+    {
+        $request = WarehouseRequests::assignLabel('7K2QX9M4H1PZB3TR', 'u1');
+
+        $this->assertSame('warehouse_unit:u1', $request->stream);
+        $this->assertNull($request->idempotencyKey);
+    }
+
     public function testListsGoPageByPage(): void
     {
         $warehouse = $this->client()->forTenant('org-1')->warehouse();

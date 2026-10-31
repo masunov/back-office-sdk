@@ -702,6 +702,71 @@ final class WarehouseRequests
         );
     }
 
+    /**
+     * A batch of free QR labels to print; a retry of the request gets the same batch.
+     */
+    public static function issueLabels(int $count): OutgoingRequest
+    {
+        return OutgoingRequest::create('/v1/warehouse/labels', ['count' => $count]);
+    }
+
+    /**
+     * @param  'available'|'assigned'|'retired'|null  $status
+     */
+    public static function labels(
+        ?string $status = null,
+        ?string $batchId = null,
+        ?string $unitId = null,
+        ?int $perPage = null,
+        ?string $cursor = null,
+    ): OutgoingRequest {
+        return OutgoingRequest::read(
+            '/v1/warehouse/labels',
+            ['status' => $status, 'batch_id' => $batchId, 'unit_id' => $unitId, 'per_page' => $perPage, 'cursor' => $cursor]
+        );
+    }
+
+    /**
+     * What was scanned or typed: the code of the QR or the short code (Q-000017, Q17).
+     */
+    public static function resolveLabel(string $code): OutgoingRequest
+    {
+        return OutgoingRequest::read('/v1/warehouse/labels/' . rawurlencode($code));
+    }
+
+    /**
+     * Idempotent by itself: a repeat for the same unit finds the label assigned. The label the unit had is retired
+     * as `replaced`. Goes in the stream of the unit, so two labels for it go in the order they were scanned.
+     */
+    public static function assignLabel(string $code, string $unitId, ?string $comment = null): OutgoingRequest
+    {
+        return new OutgoingRequest(
+            'POST',
+            '/v1/warehouse/labels/' . rawurlencode($code) . '/assign',
+            [],
+            array_filter(['unit_id' => $unitId, 'comment' => $comment], fn (?string $value): bool => $value !== null),
+            null,
+            null,
+            null,
+            'warehouse_unit:' . $unitId
+        );
+    }
+
+    /**
+     * For good; idempotent by itself.
+     *
+     * @param  'lost'|'damaged'|'other'  $reason
+     */
+    public static function retireLabel(string $code, string $reason, ?string $comment = null): OutgoingRequest
+    {
+        return new OutgoingRequest(
+            'POST',
+            '/v1/warehouse/labels/' . rawurlencode($code) . '/retire',
+            [],
+            array_filter(['reason' => $reason, 'comment' => $comment], fn (?string $value): bool => $value !== null)
+        );
+    }
+
     public static function getReservation(string $id): OutgoingRequest
     {
         return OutgoingRequest::read('/v1/warehouse/reservations/' . rawurlencode($id));
