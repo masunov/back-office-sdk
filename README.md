@@ -341,6 +341,11 @@ $wh->reservations(activeOnly: true, holder: new ExternalRef('stage', $stage->id)
 - Отказы: `insufficient_stock` (`available`, `reserved`, `requested`), `unit_reserved`, `reservation_closed`,
   `reservation_exceeded`, `unknown_reservation`, `invalid_reservation`.
 
+**Проводки склада в finance.** Приход со стоимостью и списание становятся операциями по статьям из
+`$warehouse->putSettings($purchase, $writeOff)`. Проект, который признаёт затраты сам (DriftManager), оставляет
+статьи пустыми, а сервис может запретить проводки всему проекту. Это видно в настройках:
+`$warehouse->settings()['finance_auto_post'] === false`.
+
 ## Вебхуки
 
 ```php

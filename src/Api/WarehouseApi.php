@@ -122,7 +122,10 @@ final class WarehouseApi
     }
 
     /**
-     * @return array{purchase_category: string|null, write_off_category: string|null}
+     * `finance_auto_post` false — the project forbids the warehouse to post to finance, whatever the categories: what
+     * DriftManager checks of its tenants.
+     *
+     * @return array{purchase_category: string|null, write_off_category: string|null, finance_auto_post: bool}
      */
     public function settings(): array
     {
@@ -130,7 +133,7 @@ final class WarehouseApi
     }
 
     /**
-     * @return array{purchase_category: string|null, write_off_category: string|null}
+     * @return array{purchase_category: string|null, write_off_category: string|null, finance_auto_post: bool}
      */
     public function putSettings(?string $purchaseCategory, ?string $writeOffCategory): array
     {
