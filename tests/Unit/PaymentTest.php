@@ -73,6 +73,22 @@ class PaymentTest extends TestCase
         $this->assertSame(['money', 'c2', []], [$page[0]->method, $next, $page[0]->obligationTotals]);
     }
 
+    public function testCalendarOfATrip(): void
+    {
+        $finance = $this->client()->forTenant('org-1')->finance();
+        $data    = [
+            'lines'  => [['source_id' => 'ob-1', 'key' => 'checkin', 'bucket' => 'in_period', 'remaining' => '12000.00']],
+            'totals' => ['expense' => ['overdue' => '0.00', 'in_period' => '12000.00', 'undated' => '0.00', 'paid_in_period' => '12000.00']],
+        ];
+        $this->mock->append(self::jsonResponse(200, ['data' => $data]));
+
+        $calendar = $finance->paymentCalendar('2026-11-01', '2026-11-30', ref: new ExternalRef('trip', '42'), includePlanned: true);
+
+        $this->assertSame('from=2026-11-01&to=2026-11-30&ref=trip%3A42&include_planned=1', $this->sentRequest()->getUri()->getQuery());
+        $this->assertSame(['12000.00', '0.00'], [$calendar->total('expense', 'in_period'), $calendar->total('income', 'overdue')]);
+        $this->assertSame('checkin', $calendar->lines[0]['key']);
+    }
+
     private function client(): BackOfficeClient
     {
         return new BackOfficeClient(new Transport($this->mockHttp(), 'https://bo.test', 'bo_key', null, []));

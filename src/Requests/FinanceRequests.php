@@ -371,6 +371,33 @@ final class FinanceRequests
         );
     }
 
+    /**
+     * @param  string  $from  `Y-m-d`, included
+     * @param  string  $to  `Y-m-d`, included
+     */
+    public static function paymentCalendar(
+        string $from,
+        string $to,
+        ?string $direction = null,
+        ?ExternalRef $ref = null,
+        ?ExternalRef $counterparty = null,
+        ?string $category = null,
+        bool $includePlanned = false,
+    ): OutgoingRequest {
+        return OutgoingRequest::read(
+            '/v1/finance/payment-calendar',
+            [
+                'from'            => $from,
+                'to'              => $to,
+                'direction'       => $direction,
+                'ref'             => $ref?->key(),
+                'counterparty'    => $counterparty?->key(),
+                'category'        => $category,
+                'include_planned' => $includePlanned ? 1 : null,
+            ]
+        );
+    }
+
     public static function putObligationSchedule(string $obligation, array $lines, string $reason, ?string $amount = null): OutgoingRequest
     {
         return OutgoingRequest::put(

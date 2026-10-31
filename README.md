@@ -183,7 +183,17 @@ BackOffice::outbox()->push(FinanceRequests::reversePayment('trip_payment:' . $pa
 ```
 
 Больше остатка или возврат больше оплаченного — `payment_exceeds_obligation`, не повторяется. Платежа по
-источнику ещё нет — `409 payment_not_found`, очередь повторит. Сумма графика не равна сумме
+источнику ещё нет — `409 payment_not_found`, очередь повторит.
+
+**Платёжный календарь.** Что осталось заплатить и получить — строки графиков с остатком после оплат:
+
+```php
+$calendar = $finance->paymentCalendar('2026-11-01', '2026-11-30', ref: new ExternalRef('trip', '42'));
+$calendar->lines;                          // bucket: overdue / in_period / undated, due_on, remaining, counterparty…
+$calendar->total('expense', 'overdue');    // и in_period, undated, paid_in_period (деньги без бартера)
+```
+
+Оба дня периода включительно. Раскладывать строки по датам выезда или этапа — на стороне проекта. Сумма графика не равна сумме
 — `schedule_mismatch`; исполнение назад — `invalid_transition`.
 
 ## Расписание (timetable)

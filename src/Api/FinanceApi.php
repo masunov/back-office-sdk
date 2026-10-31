@@ -13,6 +13,7 @@ use Mnd\BackOffice\Dto\FinanceOperation;
 use Mnd\BackOffice\Dto\FinancePayment;
 use Mnd\BackOffice\Dto\FinanceSummary;
 use Mnd\BackOffice\Dto\OperationPage;
+use Mnd\BackOffice\Dto\PaymentCalendar;
 use Mnd\BackOffice\Dto\RefLock;
 use Mnd\BackOffice\Http\OutgoingRequest;
 use Mnd\BackOffice\Http\Transport;
@@ -148,6 +149,20 @@ final class FinanceApi
             array_map(fn (array $payment): FinancePayment => FinancePayment::fromArray($payment), $data['data']),
             $data['meta']['next_cursor'] ?? null,
         ];
+    }
+
+    public function paymentCalendar(
+        string $from,
+        string $to,
+        ?string $direction = null,
+        ?ExternalRef $ref = null,
+        ?ExternalRef $counterparty = null,
+        ?string $category = null,
+        bool $includePlanned = false,
+    ): PaymentCalendar {
+        return PaymentCalendar::fromArray(
+            $this->send(FinanceRequests::paymentCalendar($from, $to, $direction, $ref, $counterparty, $category, $includePlanned))['data']
+        );
     }
 
     public function putObligationSchedule(string $obligation, array $lines, string $reason, ?string $amount = null): FinanceObligation
