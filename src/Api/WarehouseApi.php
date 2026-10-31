@@ -199,6 +199,27 @@ final class WarehouseApi
         );
     }
 
+    /**
+     * A page of units by serial number and the cursor of the next one (null — no more). `units()` gives only the
+     * first page of up to 1000; a walk over every unit (a check by QR labels) goes by pages.
+     *
+     * @return array{0: list<WarehouseUnit>, 1: string|null}
+     */
+    public function unitsPage(
+        ?string $itemId = null,
+        ?string $locationId = null,
+        ?string $serialNumber = null,
+        ?int $perPage = null,
+        ?string $cursor = null,
+    ): array {
+        $data = $this->send(WarehouseRequests::units($itemId, $locationId, $serialNumber, $perPage, $cursor));
+
+        return [
+            array_map(fn (array $unit): WarehouseUnit => WarehouseUnit::fromArray($unit), $data['data']),
+            $data['meta']['next_cursor'] ?? null,
+        ];
+    }
+
     public function unitHistory(string $id): UnitHistory
     {
         return UnitHistory::fromArray($this->send(WarehouseRequests::unitHistory($id))['data']);
@@ -222,6 +243,27 @@ final class WarehouseApi
             fn (array $issue): WarehouseIssue => WarehouseIssue::fromArray($issue),
             $this->send(WarehouseRequests::issues($openOnly, $overdueOnly, $recipient, $itemId))['data']
         );
+    }
+
+    /**
+     * A page of issues by due date (undated last) and the cursor of the next one; `issues()` — the first page only.
+     *
+     * @return array{0: list<WarehouseIssue>, 1: string|null}
+     */
+    public function issuesPage(
+        bool $openOnly = false,
+        bool $overdueOnly = false,
+        ?ExternalRef $recipient = null,
+        ?string $itemId = null,
+        ?int $perPage = null,
+        ?string $cursor = null,
+    ): array {
+        $data = $this->send(WarehouseRequests::issues($openOnly, $overdueOnly, $recipient, $itemId, $perPage, $cursor));
+
+        return [
+            array_map(fn (array $issue): WarehouseIssue => WarehouseIssue::fromArray($issue), $data['data']),
+            $data['meta']['next_cursor'] ?? null,
+        ];
     }
 
     /**
@@ -251,6 +293,27 @@ final class WarehouseApi
             fn (array $reservation): WarehouseReservation => WarehouseReservation::fromArray($reservation),
             $this->send(WarehouseRequests::reservations($activeOnly, $itemId, $locationId, $holder))['data']
         );
+    }
+
+    /**
+     * A page of reservations, the newest first, and the cursor of the next one; `reservations()` — the first page.
+     *
+     * @return array{0: list<WarehouseReservation>, 1: string|null}
+     */
+    public function reservationsPage(
+        bool $activeOnly = false,
+        ?string $itemId = null,
+        ?string $locationId = null,
+        ?ExternalRef $holder = null,
+        ?int $perPage = null,
+        ?string $cursor = null,
+    ): array {
+        $data = $this->send(WarehouseRequests::reservations($activeOnly, $itemId, $locationId, $holder, $perPage, $cursor));
+
+        return [
+            array_map(fn (array $reservation): WarehouseReservation => WarehouseReservation::fromArray($reservation), $data['data']),
+            $data['meta']['next_cursor'] ?? null,
+        ];
     }
 
     public function reservation(string $id): WarehouseReservation

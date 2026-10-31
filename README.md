@@ -192,6 +192,13 @@ $movement = $wh->move(WarehouseRequests::transfer($tent->id, $store->id, $field-
 $movement->balances; // list<WarehouseBalance>
 
 $wh->issues(openOnly: true, recipient: new ExternalRef('stage_staff', $staff->id)); // что не вернулось и не израсходовано
+
+// Все единицы (сверка по QR) — по страницам: units(), issues(), reservations() отдают только первую, до 1000.
+$cursor = null;
+do {
+    [$units, $cursor] = $wh->unitsPage(locationId: $store->id, perPage: 200, cursor: $cursor);
+    // …
+} while ($cursor !== null);
 $wh->setUnitCondition($unitId, 'in_repair', 'Не включается');                       // состояние единицы на месте
 ```
 

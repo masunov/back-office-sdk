@@ -192,6 +192,34 @@ class WarehouseTest extends TestCase
         $this->assertSame('Не включается', $history->conditions[0]['comment']);
     }
 
+    public function testListsGoPageByPage(): void
+    {
+        $warehouse = $this->client()->forTenant('org-1')->warehouse();
+        $unit      = ['id' => 'u1', 'item_id' => self::ITEM, 'serial_number' => 'T-1', 'condition' => 'ok', 'location_id' => 'loc-1', 'issue_id' => null];
+        $this->mock->append(
+            self::jsonResponse(200, ['data' => [$unit], 'meta' => ['next_cursor' => 'c2']]),
+            self::jsonResponse(200, ['data' => [], 'meta' => ['next_cursor' => null]]),
+            self::jsonResponse(200, ['data' => [], 'meta' => ['next_cursor' => null]]),
+            // A service before pages sends no meta.
+            self::jsonResponse(200, ['data' => [$unit]])
+        );
+
+        [$units, $next] = $warehouse->unitsPage(itemId: self::ITEM, perPage: 100);
+        $this->assertSame('item_id=' . self::ITEM . '&per_page=100', $this->sentRequest()->getUri()->getQuery());
+        $this->assertSame('T-1', $units[0]->serialNumber);
+        $this->assertSame('c2', $next);
+
+        [$issues, $next] = $warehouse->issuesPage(openOnly: true, perPage: 50, cursor: 'c2');
+        $this->assertSame('open=1&per_page=50&cursor=c2', $this->sentRequest(1)->getUri()->getQuery());
+        $this->assertSame([[], null], [$issues, $next]);
+
+        [, $next] = $warehouse->reservationsPage(activeOnly: true, perPage: 10);
+        $this->assertSame('active=1&per_page=10', $this->sentRequest(2)->getUri()->getQuery());
+        $this->assertNull($next);
+
+        $this->assertCount(1, $warehouse->units());
+    }
+
     public function testReservationAndItsIssueAndCancelShareTheStreamOfTheItem(): void
     {
         $reserve = WarehouseRequests::reserve(self::ITEM, 'loc-1', new ExternalRef('stage', '3', 'Этап 3'), '4', expiresAt: '2026-11-03T20:00:00+05:00', sourceType: 'stage_item', sourceId: 's-1');

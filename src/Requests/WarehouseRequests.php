@@ -563,11 +563,25 @@ final class WarehouseRequests
         return OutgoingRequest::read('/v1/warehouse/balances', ['item_id' => $itemId, 'location_id' => $locationId]);
     }
 
-    public static function units(?string $itemId = null, ?string $locationId = null, ?string $serialNumber = null): OutgoingRequest
-    {
+    /**
+     * Without `perPage` — a page of up to 1000, as the list was before it had pages; the next one by `cursor`.
+     */
+    public static function units(
+        ?string $itemId = null,
+        ?string $locationId = null,
+        ?string $serialNumber = null,
+        ?int $perPage = null,
+        ?string $cursor = null,
+    ): OutgoingRequest {
         return OutgoingRequest::read(
             '/v1/warehouse/units',
-            ['item_id' => $itemId, 'location_id' => $locationId, 'serial_number' => $serialNumber]
+            [
+                'item_id'       => $itemId,
+                'location_id'   => $locationId,
+                'serial_number' => $serialNumber,
+                'per_page'      => $perPage,
+                'cursor'        => $cursor,
+            ]
         );
     }
 
@@ -593,6 +607,8 @@ final class WarehouseRequests
         bool $overdueOnly = false,
         ?ExternalRef $recipient = null,
         ?string $itemId = null,
+        ?int $perPage = null,
+        ?string $cursor = null,
     ): OutgoingRequest {
         return OutgoingRequest::read(
             '/v1/warehouse/issues',
@@ -601,6 +617,8 @@ final class WarehouseRequests
                 'overdue'   => $overdueOnly ? 1 : null,
                 'recipient' => $recipient?->key(),
                 'item_id'   => $itemId,
+                'per_page'  => $perPage,
+                'cursor'    => $cursor,
             ]
         );
     }
@@ -668,6 +686,8 @@ final class WarehouseRequests
         ?string $itemId = null,
         ?string $locationId = null,
         ?ExternalRef $holder = null,
+        ?int $perPage = null,
+        ?string $cursor = null,
     ): OutgoingRequest {
         return OutgoingRequest::read(
             '/v1/warehouse/reservations',
@@ -676,6 +696,8 @@ final class WarehouseRequests
                 'item_id'     => $itemId,
                 'location_id' => $locationId,
                 'holder'      => $holder?->key(),
+                'per_page'    => $perPage,
+                'cursor'      => $cursor,
             ]
         );
     }
