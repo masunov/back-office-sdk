@@ -148,6 +148,24 @@ $o = $finance->obligation($key);                    // $o->totals, $o->schedule[
 `obligations(ref: new ExternalRef('stage', '3'))` найдёт его по этапу. `$o->due()` — что должно было прийти к
 сегодня и не пришло.
 
+**Признание.** Операция признаёт обязательство по своему источнику — полем `obligation`:
+
+```php
+BackOffice::outbox()->push(
+    FinanceRequests::createOperation(
+        'hotel', '10000.00', '2026-11-01', 'trip_cost_entry', (string) $entry->id,
+        new ExternalRef('trip', (string) $trip->id),
+        obligation: 'trip_obligation:' . $obligation->id,
+    ),
+    'org-1'
+);
+// Операция ушла раньше обязательства — связать отдельно, в потоке обязательства:
+BackOffice::outbox()->push(FinanceRequests::linkRecognition($key, 'trip_cost_entry', (string) $entry->id), 'org-1');
+```
+
+`totals.recognized` — сумма связанных операций с их сторно; связи — `$finance->obligation($key)->recognitions`.
+Источник уже признаёт другое обязательство — `recognition_taken`; направление статьи другое — `direction_mismatch`.
+
 Обязательство по источнику ещё не дошло — `409 obligation_not_found`, очередь повторит. Сумма графика не равна сумме
 — `schedule_mismatch`; исполнение назад — `invalid_transition`.
 

@@ -18,6 +18,8 @@ final class FinanceRequests
      * @param  string  $amount  positive, with a dot: `1500.00`
      * @param  string  $operationDate  `Y-m-d`
      * @param  string  $kind  `regular`, or `correction` for a closed ref
+     * @param  string|null  $obligation  the obligation it recognizes: an id or `<source_type>:<source_id>`; needs the
+     *                                   source. Not there yet — `409 obligation_not_found`, retried
      */
     public static function createOperation(
         string $category,
@@ -30,6 +32,7 @@ final class FinanceRequests
         ?ExternalRef $counterpartyRef = null,
         ?string $comment = null,
         string $kind = 'regular',
+        ?string $obligation = null,
     ): OutgoingRequest {
         return OutgoingRequest::create(
             '/v1/finance/operations',
@@ -45,6 +48,7 @@ final class FinanceRequests
                     'counterparty'     => $counterparty,
                     'counterparty_ref' => $counterpartyRef?->toArray(),
                     'comment'          => $comment,
+                    'obligation'       => $obligation,
                 ],
                 fn (mixed $value): bool => $value !== null
             ),
@@ -270,6 +274,20 @@ final class FinanceRequests
             null,
             null,
             null,
+            self::obligationStream($obligation)
+        );
+    }
+
+    /**
+     * Links the operation of a source to the obligation it recognizes, before the operation too: in the stream of the
+     * obligation, so it does not overtake the creation. The usual way is `obligation` of `createOperation()`; this
+     * one is for an operation sent before its obligation. Taken by another obligation — `recognition_taken`.
+     */
+    public static function linkRecognition(string $obligation, string $sourceType, string $sourceId): OutgoingRequest
+    {
+        return OutgoingRequest::create(
+            '/v1/finance/obligations/' . rawurlencode($obligation) . '/recognitions',
+            ['source_type' => $sourceType, 'source_id' => $sourceId],
             self::obligationStream($obligation)
         );
     }

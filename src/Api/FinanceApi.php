@@ -44,6 +44,7 @@ final class FinanceApi
         ?ExternalRef $counterpartyRef = null,
         ?string $comment = null,
         string $kind = 'regular',
+        ?string $obligation = null,
     ): FinanceOperation {
         return $this->operation(
             FinanceRequests::createOperation(
@@ -56,7 +57,8 @@ final class FinanceApi
                 $counterparty,
                 $counterpartyRef,
                 $comment,
-                $kind
+                $kind,
+                $obligation
             )
         );
     }
@@ -97,6 +99,11 @@ final class FinanceApi
     public function updateObligation(string $obligation, ?string $status = null, array $fields = []): FinanceObligation
     {
         return $this->obligationOf(FinanceRequests::updateObligation($obligation, $status, $fields));
+    }
+
+    public function linkRecognition(string $obligation, string $sourceType, string $sourceId): FinanceObligation
+    {
+        return $this->obligationOf(FinanceRequests::linkRecognition($obligation, $sourceType, $sourceId));
     }
 
     /**

@@ -8,6 +8,7 @@ namespace Mnd\BackOffice\Dto;
  * An obligation to pay a counterparty (`direction` expense) or to be paid by one (income), with its schedule.
  * Not an operation: it changes no fact. `status` is the fulfilment, `paymentStatus` is computed from payments.
  * `totals`: agreed, recognized, paid, remaining, debt, unrecognized, overpaid, due (strings), over_recognized (bool).
+ * `recognitions` — the operations that recognize it, by their source; only in the reading of one obligation.
  */
 final class FinanceObligation
 {
@@ -15,6 +16,7 @@ final class FinanceObligation
      * @param  array<string, string|bool>  $totals
      * @param  list<ObligationLine>  $schedule
      * @param  list<array{title: string|null, url: string}>  $documents
+     * @param  list<array{source_type: string, source_id: string, operation_id: string|null, amount: string, linked_at: string}>  $recognitions
      */
     public function __construct(
         public readonly string $id,
@@ -34,6 +36,7 @@ final class FinanceObligation
         public readonly array $schedule,
         public readonly ?string $comment,
         public readonly array $documents,
+        public readonly array $recognitions = [],
     ) {
     }
 
@@ -59,7 +62,8 @@ final class FinanceObligation
             $data['totals'] ?? [],
             array_map(fn (array $line): ObligationLine => ObligationLine::fromArray($line), $data['schedule'] ?? []),
             $data['comment'] ?? null,
-            array_values($data['documents'] ?? [])
+            array_values($data['documents'] ?? []),
+            array_values($data['recognitions'] ?? [])
         );
     }
 

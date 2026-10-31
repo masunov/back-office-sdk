@@ -38,6 +38,14 @@ class ObligationTest extends TestCase
         'documents'        => [],
     ];
 
+    private const RECOGNITION = [
+        'source_type'  => 'trip_cost_entry',
+        'source_id'    => 'ce-1',
+        'operation_id' => null,
+        'amount'       => '0.00',
+        'linked_at'    => '2026-11-01T12:00:00+00:00',
+    ];
+
     private function client(): BackOfficeClient
     {
         return new BackOfficeClient(new Transport($this->mockHttp(), 'https://bo.test', 'bo_key', null, []));
@@ -61,6 +69,35 @@ class ObligationTest extends TestCase
         // No schedule — the service makes one undated line; nothing empty is sent.
         $this->assertArrayNotHasKey('schedule', $create->body);
         $this->assertSame('agreed', $create->body['status']);
+    }
+
+    public function testOperationRecognizesItsObligation(): void
+    {
+        $operation = FinanceRequests::createOperation(
+            'hotel',
+            '10000.00',
+            '2026-11-01',
+            'trip_cost_entry',
+            'ce-1',
+            obligation: 'trip_obligation:ob-1'
+        );
+        $this->assertSame('trip_obligation:ob-1', $operation->body['obligation']);
+        // The operation goes in its own stream; the obligation not there yet is retried.
+        $this->assertSame(FinanceRequests::createOperation('hotel', '1', '2026-11-01', 'trip_cost_entry', 'ce-1')->stream, $operation->stream);
+        $this->assertArrayNotHasKey('obligation', FinanceRequests::createOperation('hotel', '1', '2026-11-01')->body);
+
+        $link = FinanceRequests::linkRecognition('trip_obligation:ob-1', 'trip_cost_entry', 'ce-1');
+        $this->assertSame('/v1/finance/obligations/trip_obligation%3Aob-1/recognitions', $link->path);
+        $this->assertSame(['source_type' => 'trip_cost_entry', 'source_id' => 'ce-1'], $link->body);
+        $this->assertNotNull($link->idempotencyKey);
+        // After the creation of the obligation, in its stream.
+        $this->assertSame(FinanceRequests::putObligationSchedule('trip_obligation:ob-1', [], 'x')->stream, $link->stream);
+
+        $finance = $this->client()->forTenant('org-1')->finance();
+        $this->mock->append(
+            self::jsonResponse(201, ['data' => self::OBLIGATION + ['recognitions' => [self::RECOGNITION]]])
+        );
+        $this->assertSame('ce-1', $finance->linkRecognition('trip_obligation:ob-1', 'trip_cost_entry', 'ce-1')->recognitions[0]['source_id']);
     }
 
     public function testObligationNotThereYetIsRetriedAndAnUnknownIdIsNot(): void
