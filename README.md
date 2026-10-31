@@ -166,7 +166,24 @@ BackOffice::outbox()->push(FinanceRequests::linkRecognition($key, 'trip_cost_ent
 `totals.recognized` — сумма связанных операций с их сторно; связи — `$finance->obligation($key)->recognitions`.
 Источник уже признаёт другое обязательство — `recognition_taken`; направление статьи другое — `direction_mismatch`.
 
-Обязательство по источнику ещё не дошло — `409 obligation_not_found`, очередь повторит. Сумма графика не равна сумме
+Обязательство по источнику ещё не дошло — `409 obligation_not_found`, очередь повторит.
+
+**Платежи.** Выплата по расходу или поступление по доходу — не операция: факт не меняется, закрытый выезд или этап
+не мешает.
+
+```php
+BackOffice::outbox()->push(
+    FinanceRequests::createPayment($key, '10000.00', 'trip_payment', (string) $payment->id, '2026-11-08'),
+    'org-1'
+);
+// Возврат — kind refund; бартер спонсора — method barter. Ошибочная запись — сторно, по источнику:
+BackOffice::outbox()->push(FinanceRequests::reversePayment('trip_payment:' . $payment->id), 'org-1');
+
+[$payments, $cursor] = $finance->payments(obligation: $key);   // $finance->obligation($key)->payments — тоже
+```
+
+Больше остатка или возврат больше оплаченного — `payment_exceeds_obligation`, не повторяется. Платежа по
+источнику ещё нет — `409 payment_not_found`, очередь повторит. Сумма графика не равна сумме
 — `schedule_mismatch`; исполнение назад — `invalid_transition`.
 
 ## Расписание (timetable)

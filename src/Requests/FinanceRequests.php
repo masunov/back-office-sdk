@@ -298,6 +298,79 @@ final class FinanceRequests
      *
      * @param  list<array{key: string, amount: string, due_on?: string|null, label?: string|null, external_ref?: array{type: string, id: string, label?: string|null}|null}>  $lines
      */
+    /**
+     * A payment (`kind` payment) or a refund of an obligation; the source is required and addresses it later. In the
+     * stream of its source, so its reversal does not overtake it. The obligation not there yet —
+     * `409 obligation_not_found`, retried; more than is left — `payment_exceeds_obligation`, not retried.
+     *
+     * @param  string  $obligation  an id or `<source_type>:<source_id>`
+     * @param  string  $method  `money`, or `barter` — services or goods at an agreed value
+     * @param  string|null  $paidOn  `Y-m-d`; null — today of the tenant
+     */
+    public static function createPayment(
+        string $obligation,
+        string $amount,
+        string $sourceType,
+        string $sourceId,
+        ?string $paidOn = null,
+        string $kind = 'payment',
+        string $method = 'money',
+        ?string $comment = null,
+    ): OutgoingRequest {
+        return OutgoingRequest::create(
+            '/v1/finance/payments',
+            array_filter(
+                [
+                    'obligation'  => $obligation,
+                    'kind'        => $kind,
+                    'method'      => $method,
+                    'amount'      => $amount,
+                    'paid_on'     => $paidOn,
+                    'source_type' => $sourceType,
+                    'source_id'   => $sourceId,
+                    'comment'     => $comment,
+                ],
+                fn (?string $value): bool => $value !== null
+            ),
+            self::stream($sourceType, $sourceId)
+        );
+    }
+
+    /**
+     * The reversal of a payment by its id or `<source_type>:<source_id>`; by the source it goes after the payment.
+     */
+    public static function reversePayment(string $payment, ?string $paidOn = null, ?string $comment = null): OutgoingRequest
+    {
+        return OutgoingRequest::create(
+            '/v1/finance/payments/' . rawurlencode($payment) . '/reverse',
+            array_filter(['paid_on' => $paidOn, 'comment' => $comment], fn (?string $value): bool => $value !== null),
+            self::obligationStream($payment)
+        );
+    }
+
+    public static function listPayments(
+        ?string $obligation = null,
+        ?ExternalRef $ref = null,
+        ?ExternalRef $counterparty = null,
+        ?string $from = null,
+        ?string $to = null,
+        ?int $perPage = null,
+        ?string $cursor = null,
+    ): OutgoingRequest {
+        return OutgoingRequest::read(
+            '/v1/finance/payments',
+            [
+                'obligation'   => $obligation,
+                'ref'          => $ref?->key(),
+                'counterparty' => $counterparty?->key(),
+                'from'         => $from,
+                'to'           => $to,
+                'per_page'     => $perPage,
+                'cursor'       => $cursor,
+            ]
+        );
+    }
+
     public static function putObligationSchedule(string $obligation, array $lines, string $reason, ?string $amount = null): OutgoingRequest
     {
         return OutgoingRequest::put(

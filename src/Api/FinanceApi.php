@@ -10,6 +10,7 @@ use Mnd\BackOffice\Dto\ExternalRef;
 use Mnd\BackOffice\Dto\FinanceCategory;
 use Mnd\BackOffice\Dto\FinanceObligation;
 use Mnd\BackOffice\Dto\FinanceOperation;
+use Mnd\BackOffice\Dto\FinancePayment;
 use Mnd\BackOffice\Dto\FinanceSummary;
 use Mnd\BackOffice\Dto\OperationPage;
 use Mnd\BackOffice\Dto\RefLock;
@@ -109,6 +110,46 @@ final class FinanceApi
     /**
      * @param  list<array{key: string, amount: string, due_on?: string|null, label?: string|null}>  $lines
      */
+    public function createPayment(
+        string $obligation,
+        string $amount,
+        string $sourceType,
+        string $sourceId,
+        ?string $paidOn = null,
+        string $kind = 'payment',
+        string $method = 'money',
+        ?string $comment = null,
+    ): FinancePayment {
+        return $this->payment(FinanceRequests::createPayment($obligation, $amount, $sourceType, $sourceId, $paidOn, $kind, $method, $comment));
+    }
+
+    public function reversePayment(string $payment, ?string $paidOn = null, ?string $comment = null): FinancePayment
+    {
+        return $this->payment(FinanceRequests::reversePayment($payment, $paidOn, $comment));
+    }
+
+    /**
+     * A page of payments, the newest paid first, and the cursor of the next one.
+     *
+     * @return array{0: list<FinancePayment>, 1: string|null}
+     */
+    public function payments(
+        ?string $obligation = null,
+        ?ExternalRef $ref = null,
+        ?ExternalRef $counterparty = null,
+        ?string $from = null,
+        ?string $to = null,
+        ?int $perPage = null,
+        ?string $cursor = null,
+    ): array {
+        $data = $this->send(FinanceRequests::listPayments($obligation, $ref, $counterparty, $from, $to, $perPage, $cursor));
+
+        return [
+            array_map(fn (array $payment): FinancePayment => FinancePayment::fromArray($payment), $data['data']),
+            $data['meta']['next_cursor'] ?? null,
+        ];
+    }
+
     public function putObligationSchedule(string $obligation, array $lines, string $reason, ?string $amount = null): FinanceObligation
     {
         return $this->obligationOf(FinanceRequests::putObligationSchedule($obligation, $lines, $reason, $amount));
@@ -239,6 +280,11 @@ final class FinanceApi
     private function obligationOf(OutgoingRequest $request): FinanceObligation
     {
         return FinanceObligation::fromArray($this->send($request)['data']);
+    }
+
+    private function payment(OutgoingRequest $request): FinancePayment
+    {
+        return FinancePayment::fromArray($this->send($request)['data']);
     }
 
     private function operation(OutgoingRequest $request): FinanceOperation
