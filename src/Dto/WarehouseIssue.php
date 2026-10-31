@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Mnd\BackOffice\Dto;
 
 /**
- * Stock issued to a person of the project. Also the `data` of the webhook `warehouse.issue.overdue`.
+ * Stock issued to a person of the project. Also the `data` of the webhook `warehouse.issue.overdue`. Settled by
+ * returns and consumptions: what is left is `quantity − returnedQuantity − consumedQuantity`.
  */
 final class WarehouseIssue
 {
@@ -21,6 +22,7 @@ final class WarehouseIssue
         public readonly ?string $dueAt,
         public readonly ?string $closedAt,
         public readonly bool $overdue,
+        public readonly string $consumedQuantity = '0.000',
     ) {
     }
 
@@ -40,7 +42,9 @@ final class WarehouseIssue
             $data['returned_quantity'],
             $data['due_at'] ?? null,
             $data['closed_at'] ?? null,
-            (bool) $data['overdue']
+            (bool) $data['overdue'],
+            // A service before consumptions sends no such field.
+            $data['consumed_quantity'] ?? '0.000'
         );
     }
 

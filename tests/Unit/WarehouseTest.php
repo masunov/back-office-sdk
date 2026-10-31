@@ -68,6 +68,38 @@ class WarehouseTest extends TestCase
         $this->assertTrue((new ApiErrorException(409, 'issue_not_found', 'x'))->isRetriable());
     }
 
+    public function testConsumptionSettlesTheIssueInItsStream(): void
+    {
+        $issue    = WarehouseRequests::issue(self::ITEM, 'loc-1', new ExternalRef('trip', 't-1'), '10', sourceType: 'trip_issue', sourceId: 'i-1');
+        $byId     = WarehouseRequests::consumeIssue(self::ITEM, 'issue-1', '6');
+        $bySource = WarehouseRequests::consumeBySource(
+            self::ITEM,
+            'trip_issue',
+            'i-1',
+            sourceType: 'trip_consumption',
+            sourceId: 'c-1',
+            externalRef: new ExternalRef('trip', 't-1')
+        );
+
+        $this->assertSame($issue->stream, $byId->stream);
+        $this->assertSame($issue->stream, $bySource->stream);
+        $this->assertNotNull($bySource->idempotencyKey);
+        $this->assertSame(['type' => 'consume', 'item_id' => self::ITEM, 'issue_id' => 'issue-1', 'quantity' => '6'], $byId->body);
+        $this->assertSame(
+            [
+                'type'              => 'consume',
+                'item_id'           => self::ITEM,
+                'issue_source_type' => 'trip_issue',
+                'issue_source_id'   => 'i-1',
+                'source_type'       => 'trip_consumption',
+                'source_id'         => 'c-1',
+                'external_ref'      => ['type' => 'trip', 'id' => 't-1', 'label' => null],
+            ],
+            $bySource->body
+        );
+        $this->assertFalse((new ApiErrorException(409, 'consume_exceeds_issue', 'x'))->isRetriable());
+    }
+
     public function testCorrectionsCarryTheirOwnFields(): void
     {
         $this->assertSame(
@@ -132,6 +164,7 @@ class WarehouseTest extends TestCase
                 'recipient'         => ['type' => 'stage_staff', 'id' => '17', 'label' => 'Петров'],
                 'quantity'          => '2.000',
                 'returned_quantity' => '0.000',
+                'consumed_quantity' => '0.500',
                 'due_at'            => '2026-11-02T15:00:00+00:00',
                 'closed_at'         => null,
                 'overdue'           => true,
@@ -152,6 +185,7 @@ class WarehouseTest extends TestCase
         $this->assertSame('overdue=1&recipient=stage_staff%3A17', $this->sentRequest()->getUri()->getQuery());
         $this->assertTrue($issues[0]->overdue && $issues[0]->isOpen());
         $this->assertSame('Петров', $issues[0]->recipient->label);
+        $this->assertSame('0.500', $issues[0]->consumedQuantity);
 
         $history = $warehouse->unitHistory('u1');
         $this->assertSame('in_repair', $history->unit->condition);

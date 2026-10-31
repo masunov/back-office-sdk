@@ -138,7 +138,7 @@ final class WarehouseApi
 
     /**
      * Sends a movement built by WarehouseRequests (`receipt`, `writeOff`, `transfer`, `issue`, `issueReserved`,
-     * `returnIssue`, `inventory`, `adjustment`).
+     * `returnIssue`, `consumeIssue`, `inventory`, `adjustment`).
      *
      * @return WarehouseMovement|null null — an inventory without a difference wrote nothing
      */

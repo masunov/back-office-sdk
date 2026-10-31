@@ -412,6 +412,67 @@ final class WarehouseRequests
     }
 
     /**
+     * Issued stock used up where it went (oil at a trip, a destroyed tyre): it settles the issue without coming back.
+     * Without a quantity — what is left of the issue; a serial unit is the one of the issue and is written off. More
+     * than is left — `409 consume_exceeds_issue`.
+     */
+    public static function consumeIssue(
+        string $itemId,
+        string $issueId,
+        ?string $quantity = null,
+        ?string $sourceType = null,
+        ?string $sourceId = null,
+        ?ExternalRef $externalRef = null,
+        ?string $comment = null,
+        ?string $occurredAt = null,
+    ): OutgoingRequest {
+        return self::movement(
+            'consume',
+            $itemId,
+            [
+            'issue_id' => $issueId,
+            'quantity' => $quantity,
+            ],
+            $sourceType,
+            $sourceId,
+            $externalRef,
+            $comment,
+            $occurredAt
+        );
+    }
+
+    /**
+     * A consumption of the issue moved with this source, for the outbox, as `returnBySource`: the issue not there
+     * yet — `409 issue_not_found`, retried.
+     */
+    public static function consumeBySource(
+        string $itemId,
+        string $issueSourceType,
+        string $issueSourceId,
+        ?string $quantity = null,
+        ?string $sourceType = null,
+        ?string $sourceId = null,
+        ?ExternalRef $externalRef = null,
+        ?string $comment = null,
+        ?string $occurredAt = null,
+    ): OutgoingRequest {
+        return self::movement(
+            'consume',
+            $itemId,
+            [
+            'issue_source_type' => $issueSourceType,
+            'issue_source_id'   => $issueSourceId,
+            'quantity'          => $quantity,
+            ],
+            $sourceType,
+            $sourceId,
+            $externalRef,
+            $comment,
+            $occurredAt
+        );
+    }
+
+    /**
      * The counted quantity at a place; the service writes the difference, or nothing.
      */
     public static function inventory(

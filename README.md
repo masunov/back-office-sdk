@@ -179,11 +179,19 @@ BackOffice::outbox()->push(
     tenant: $organization->id
 );
 
+// Израсходовано там, куда выдали (масло на выезде, разрушенная шина): погашает выдачу без возврата, остаток места
+// второй раз не меняется. Без quantity — остаток выдачи; серийная единица выдачи становится written_off.
+BackOffice::outbox()->push(
+    WarehouseRequests::consumeBySource($oil->id, 'trip_issue', $tripIssue->id, quantity: '6',
+        sourceType: 'trip_consumption', sourceId: $consumption->id),
+    tenant: $team->id
+);
+
 // Ответ на движение — с остатками мест после него.
 $movement = $wh->move(WarehouseRequests::transfer($tent->id, $store->id, $field->id, quantity: '3'));
 $movement->balances; // list<WarehouseBalance>
 
-$wh->issues(openOnly: true, recipient: new ExternalRef('stage_staff', $staff->id)); // что не вернулось
+$wh->issues(openOnly: true, recipient: new ExternalRef('stage_staff', $staff->id)); // что не вернулось и не израсходовано
 $wh->setUnitCondition($unitId, 'in_repair', 'Не включается');                       // состояние единицы на месте
 ```
 
@@ -191,7 +199,9 @@ $wh->setUnitCondition($unitId, 'in_repair', 'Не включается');       
   по `serialNumber`, остальное — по `unitId`.
 - Движения одной позиции идут в одном потоке очереди (`warehouse_item:<id>`).
 - `inventory()` передаёт фактическое количество; без расхождения `move()` вернёт `null`.
-- Отказы: `insufficient_stock`, `unit_unavailable`, `return_exceeds_issue`, `unknown_item`, `unknown_issue`,
+- Выдача погашается возвратами и расходом: `WarehouseIssue::$returnedQuantity` и `$consumedQuantity`; закрытая
+  (`closedAt`) не открыта и не просрочена.
+- Отказы: `insufficient_stock`, `unit_unavailable`, `return_exceeds_issue`, `consume_exceeds_issue`, `unknown_item`, `unknown_issue`,
   `period_locked` (списание по закрытой в finance ссылке) и другие — `docs/openapi.yaml` сервиса.
 
 ### Резервы
