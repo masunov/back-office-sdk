@@ -109,6 +109,48 @@ BackOffice::finance(null)->putCategory('entry_fee', 'Взносы', 'income');  
 Чтение повторяется дважды (100 и 400 мс), запись — нет. После 5 сбоев подряд circuit breaker на 30 секунд
 перестаёт отправлять запросы.
 
+## Обязательства (finance)
+
+Договорённость заплатить контрагенту или получить от него деньги, с графиком оплат. Это не операция: факт и
+отчёты не меняются, закрытая ссылка не мешает. Направление — из статьи.
+
+```php
+use Mnd\BackOffice\Requests\FinanceRequests;
+
+BackOffice::outbox()->push(
+    FinanceRequests::createObligation(
+        'hotel',
+        new ExternalRef('contractor', (string) $hotel->id, $hotel->name),
+        '24000.00',
+        'trip_obligation',
+        (string) $obligation->id,                    // источник обязателен
+        new ExternalRef('trip', (string) $trip->id),
+        [
+            ['key' => 'prepay', 'amount' => '12000.00', 'due_on' => '2026-11-05', 'label' => 'Предоплата'],
+            ['key' => 'checkin', 'amount' => '12000.00', 'due_on' => null, 'label' => 'При заселении'],
+        ],
+    ),
+    'org-1'
+);
+
+// Дальше — по источнику, тем же потоком: изменения не обгонят создание.
+$key = 'trip_obligation:' . $obligation->id;
+BackOffice::outbox()->push(FinanceRequests::putObligationSchedule($key, $lines, 'Гостиница перенесла предоплату'), 'org-1');
+BackOffice::outbox()->push(FinanceRequests::updateObligation($key, 'fulfilled'), 'org-1');
+
+$finance = BackOffice::forTenant('org-1')->finance();
+$o = $finance->obligation($key);                    // $o->totals, $o->schedule[0]->remaining, $o->overdue
+[$page, $cursor] = $finance->obligations(ref: new ExternalRef('trip', '42'), overdue: true);
+```
+
+У строки графика может быть свой объект: договор спонсора чемпионата платится по этапам —
+`['key' => 'stage-3', 'amount' => '100000', 'due_on' => '2027-01-10', 'external_ref' => ['type' => 'stage', 'id' => '3']]`;
+`obligations(ref: new ExternalRef('stage', '3'))` найдёт его по этапу. `$o->due()` — что должно было прийти к
+сегодня и не пришло.
+
+Обязательство по источнику ещё не дошло — `409 obligation_not_found`, очередь повторит. Сумма графика не равна сумме
+— `schedule_mismatch`; исполнение назад — `invalid_transition`.
+
 ## Расписание (timetable)
 
 ```php

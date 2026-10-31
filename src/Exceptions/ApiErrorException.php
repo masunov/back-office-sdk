@@ -23,11 +23,12 @@ class ApiErrorException extends BackOfficeException
     ];
 
     /**
-     * Retriable only as a `409`: the reservation of an issue or of a cancel by source has not arrived yet. The same
-     * code with `404` is an unknown id, it never comes.
+     * Retriable only as a `409`: the reservation of an issue or of a cancel by source, or the obligation addressed by
+     * its source, has not arrived yet. The same code with `404` is an unknown id, it never comes.
      */
     private const RETRIABLE_CONFLICTS = [
         'reservation_not_found',
+        'obligation_not_found',
     ];
 
     /**
