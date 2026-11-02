@@ -23,6 +23,34 @@ class WarehouseTest extends TestCase
         return new BackOfficeClient(new Transport($this->mockHttp(), 'https://bo.test', 'bo_key', null, []));
     }
 
+    public function testItemsByIdsAskOnceForEachChunkOfTwoHundred(): void
+    {
+        $client = $this->client();
+        $ids    = array_map(fn (int $i) => sprintf('01a14100-0000-7000-8000-%012d', $i), range(1, 250));
+        $item   = fn (string $id): array => ['id' => $id, 'name' => 'Шина ' . $id, 'category' => null, 'unit' => 'шт', 'sku' => null, 'accounting' => 'serial', 'min_balance' => null, 'photo_url' => null, 'archived' => true];
+        $this->mock->append(
+            self::jsonResponse(200, ['data' => [$item($ids[0])], 'meta' => ['next_cursor' => null]]),
+            self::jsonResponse(200, ['data' => [$item($ids[249])], 'meta' => ['next_cursor' => null]]),
+        );
+
+        $found = $client->warehouse()->itemsByIds([...$ids, $ids[0]]);
+
+        $this->assertSame([$ids[0], $ids[249]], array_keys($found));
+        $this->assertTrue($found[$ids[249]]->archived);
+        $this->assertCount(2, $this->history);
+        parse_str($this->sentRequest(0)->getUri()->getQuery(), $first);
+        parse_str($this->sentRequest(1)->getUri()->getQuery(), $second);
+        $this->assertCount(200, $first['ids']);
+        $this->assertCount(50, $second['ids']);
+        $this->assertSame('200', $first['per_page']);
+        $this->assertStringContainsString('ids%5B%5D=', $this->sentRequest(0)->getUri()->getQuery());
+
+        $this->assertSame([], $client->warehouse()->itemsByIds([]));
+        $this->assertCount(2, $this->history);
+        $this->expectException(\InvalidArgumentException::class);
+        WarehouseRequests::itemsByIds($ids);
+    }
+
     public function testMovementsOfOneItemShareStreamAndKey(): void
     {
         $issue   = WarehouseRequests::issue(self::ITEM, 'loc-1', new ExternalRef('stage_staff', '17', 'Петров'), '2', dueAt: '2026-11-10T18:00:00+03:00');

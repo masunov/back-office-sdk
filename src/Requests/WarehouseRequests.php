@@ -15,6 +15,23 @@ use Mnd\BackOffice\Http\OutgoingRequest;
  */
 final class WarehouseRequests
 {
+    /** The most ids of one request of items by ids. */
+    public const ITEMS_BY_IDS = 200;
+
+    /**
+     * The items with these ids, archived ones too; foreign and unknown ids are just not in the answer.
+     *
+     * @param  list<string>  $ids  at most ITEMS_BY_IDS
+     */
+    public static function itemsByIds(array $ids): OutgoingRequest
+    {
+        if (\count($ids) > self::ITEMS_BY_IDS) {
+            throw new \InvalidArgumentException('At most ' . self::ITEMS_BY_IDS . ' ids per request');
+        }
+
+        return OutgoingRequest::read('/v1/warehouse/items', ['ids' => array_values($ids), 'per_page' => self::ITEMS_BY_IDS]);
+    }
+
     public static function listItems(
         ?string $search = null,
         ?string $category = null,

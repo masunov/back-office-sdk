@@ -52,6 +52,26 @@ final class WarehouseApi
         ];
     }
 
+    /**
+     * The items with these ids, archived ones too, in requests of up to 200 — what a page shows, without the whole
+     * catalog. Repeated ids are asked once; foreign and unknown ones are not in the result.
+     *
+     * @param  list<string>  $ids
+     * @return array<string, WarehouseItem> by id
+     */
+    public function itemsByIds(array $ids): array
+    {
+        $found = [];
+
+        foreach (array_chunk(array_values(array_unique($ids)), WarehouseRequests::ITEMS_BY_IDS) as $chunk) {
+            foreach ($this->send(WarehouseRequests::itemsByIds($chunk))['data'] as $item) {
+                $found[$item['id']] = WarehouseItem::fromArray($item);
+            }
+        }
+
+        return $found;
+    }
+
     public function item(string $id): WarehouseItem
     {
         return WarehouseItem::fromArray($this->send(WarehouseRequests::getItem($id))['data']);

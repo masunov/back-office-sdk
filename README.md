@@ -247,6 +247,9 @@ $wh = BackOffice::warehouse($organization->id, new Actor($user->id, $user->name)
 $tent  = $wh->createItem(new WarehouseItemInput('Шатёр 3×3', 'шт', minBalance: '2'));
 $radio = $wh->createItem(new WarehouseItemInput('Рация', 'шт', accounting: 'serial'));
 $store = $wh->createLocation('Склад', 'warehouse');
+
+// Названия того, что на экране, без чтения всего каталога: по id, архивные тоже, запросами до 200.
+$named = $wh->itemsByIds(array_column($balances, 'itemId')); // [id => WarehouseItem]
 $field = $wh->createLocation('Этап 3', 'field', externalRef: new ExternalRef('stage', $stage->id, $stage->name));
 
 // Приход со стоимостью: при включённом finance и статье в settings — расход в finance.
