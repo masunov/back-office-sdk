@@ -20,6 +20,8 @@ class ApiErrorException extends BackOfficeException
         'issue_not_found',
         'idempotency_in_progress',
         'too_many_requests',
+        // The rates of today are not loaded yet: the hourly loading catches up.
+        'rate_stale',
     ];
 
     /**

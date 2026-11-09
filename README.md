@@ -351,6 +351,36 @@ $wh->reservations(activeOnly: true, holder: new ExternalRef('stage', $stage->id)
 статьи пустыми, а сервис может запретить проводки всему проекту. Это видно в настройках:
 `$warehouse->settings()['finance_auto_post'] === false`.
 
+## Курсы валют (currency)
+
+Официальные курсы ЦБ РФ (`cbr`, к RUB) и НБРБ (`nbrb`, к BYN), общие для всех проектов: арендатор и актор не
+передаются. Нужен модуль `currency` у проекта и право ключа `currency:read`. Источник указывается всегда — курс
+никогда не берётся у другого. Курсы и суммы — decimal-строки, не float.
+
+```php
+$currency = BackOffice::currency();
+
+// Курс действует с даты установления (rateDate) до следующего: на выходной — курс пятницы (ЦБ).
+$usd = $currency->rate('cbr', 'USD', 'RUB', '2026-11-08');  // $usd->rate === '82.138600000000'
+$all = $currency->rates('nbrb', 'BYN', ['RUB', 'USD', 'EUR']); // [quote => CurrencyRate], на сегодня источника
+
+// Пересчёт по курсу снимка, half-up до копеек. Сумму хранить вместе с rate и rate->rateSetId:
+// повтор операции берёт их, а не новый курс.
+$conversion = $currency->convert('cbr', '1000.00', 'RUB', 'USD', '2026-11-09');
+$manual     = $currency->convert('manual', '100', 'USD', 'RUB', '2026-11-09', rate: '80');
+
+// История пары за период до 366 дней — все страницы подряд.
+foreach ($currency->history('cbr', 'RUB', 'USD', '2026-01-01', '2026-11-09') as $rate) {
+    // $rate->rateDate … $rate->validThrough
+}
+
+$currency->sources(); // confirmedThrough — последний день, на который курс известен
+```
+
+Ошибки: `404 rate_not_found` — курс на дату ещё не известен (поле `confirmed_through`), `409 rate_stale` — курсы
+на сегодня ещё не загружены (`isRetriable()`: загрузка догоняет каждый час), `422 unsupported_currency`,
+`422 unknown_source`, `422 invalid_conversion`.
+
 ## Вебхуки
 
 ```php

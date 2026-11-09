@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Mnd\BackOffice\Laravel;
 
+use Mnd\BackOffice\Api\CurrencyApi;
 use Mnd\BackOffice\Api\FinanceApi;
 use Mnd\BackOffice\Api\TenantsApi;
 use Mnd\BackOffice\Api\TimetableApi;
@@ -41,6 +42,11 @@ class BackOfficeManager
     public function tenants(?Actor $actor = null): TenantsApi
     {
         return $this->client->actingAs($actor)->tenants();
+    }
+
+    public function currency(): CurrencyApi
+    {
+        return $this->client->currency();
     }
 
     public function finance(?string $tenant, ?Actor $actor = null): FinanceApi

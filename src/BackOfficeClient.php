@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Mnd\BackOffice;
 
 use GuzzleHttp\Client;
+use Mnd\BackOffice\Api\CurrencyApi;
 use Mnd\BackOffice\Api\FinanceApi;
 use Mnd\BackOffice\Api\TenantsApi;
 use Mnd\BackOffice\Api\TimetableApi;
@@ -49,6 +50,14 @@ final class BackOfficeClient
     public function tenants(): TenantsApi
     {
         return new TenantsApi($this->transport, $this->actor);
+    }
+
+    /**
+     * Rates of currencies: common to every project, the tenant and the actor are not sent.
+     */
+    public function currency(): CurrencyApi
+    {
+        return new CurrencyApi($this->transport);
     }
 
     public function finance(): FinanceApi
