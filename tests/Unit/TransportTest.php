@@ -107,6 +107,40 @@ class TransportTest extends TestCase
         }
     }
 
+    public function testRateLimitIsARetriableRefusalWithRetryAfterNotAFailureOfTheService(): void
+    {
+        $client = $this->client();
+        $this->mock->append(
+            self::apiError(429, 'too_many_requests', ['retry_after' => 17])->withHeader('Retry-After', '17'),
+            self::apiError(429, 'too_many_requests'),
+            self::jsonResponse(200, ['data' => self::operationData()])
+        );
+
+        try {
+            $client->forTenant('org-1')->finance()->getOperation('01920000-0000-7000-8000-000000000001');
+            $this->fail('No exception');
+        } catch (ApiErrorException $e) {
+            $this->assertSame(429, $e->status());
+            $this->assertTrue($e->isRateLimited());
+            $this->assertTrue($e->isRetriable());
+            $this->assertSame(17, $e->retryAfter());
+        }
+
+        // A read refused by the limit is not retried at once: that would only spend the limit.
+        $this->assertCount(1, $this->history);
+
+        try {
+            $client->forTenant('org-1')->finance()->getOperation('01920000-0000-7000-8000-000000000001');
+            $this->fail('No exception');
+        } catch (ApiErrorException $e) {
+            $this->assertNull($e->retryAfter());
+        }
+
+        // Not a failure of the service: the circuit breaker stays closed.
+        $client->forTenant('org-1')->finance()->getOperation('01920000-0000-7000-8000-000000000001');
+        $this->assertCount(3, $this->history);
+    }
+
     public function testReadIsRetriedWriteIsNot(): void
     {
         $client = $this->client();

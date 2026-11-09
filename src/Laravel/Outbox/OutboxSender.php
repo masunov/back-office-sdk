@@ -17,6 +17,8 @@ use Mnd\BackOffice\Laravel\Events\OutboxMessageSent;
  * Sends the due messages of the outbox (back-office ROADMAP.md, 2.7). Nothing is lost:
  *  - the service is unavailable, the key is refused (401/403) — retried without limit, the change waits for the
  *    service or for the configuration to be fixed;
+ *  - the rate limit of the project is reached (429) — retried without limit after `Retry-After`, and the rest of
+ *    the batch waits for the next run: it would be refused too;
  *  - a refusal that may pass (`409 operation_not_found` of a reversal) — retried up to `max_attempts`;
  *  - any other refusal (422, `409 idempotency_conflict`) — the message fails and waits for a person.
  * A message of a stream waits until the earlier ones of its stream are sent.
@@ -70,6 +72,10 @@ class OutboxSender
             } catch (ApiErrorException $e) {
                 $result[$this->refused($message, $e)]++;
 
+                if ($e->isRateLimited()) {
+                    break;
+                }
+
                 continue;
             }
 
@@ -87,6 +93,14 @@ class OutboxSender
     private function refused(OutboxMessage $message, ApiErrorException $e): string
     {
         $error = $e->errorCode() . ': ' . $e->getMessage();
+
+        if ($e->isRateLimited()) {
+            $retryAt = $this->retryAt($message);
+            $wanted  = Carbon::now()->addSeconds($e->retryAfter() ?? 0);
+            $message->scheduleRetry($wanted->greaterThan($retryAt) ? $wanted : $retryAt, $e->status(), $error);
+
+            return 'retried';
+        }
 
         if (\in_array($e->status(), [401, 403], true)) {
             $message->scheduleRetry($this->retryAt($message), $e->status(), $error);

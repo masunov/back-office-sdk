@@ -41,6 +41,7 @@ class ApiErrorException extends BackOfficeException
         string $message,
         private readonly array $details = [],
         ?Throwable $previous = null,
+        private readonly ?int $retryAfter = null,
     ) {
         parent::__construct($message, $status, $previous);
     }
@@ -61,6 +62,20 @@ class ApiErrorException extends BackOfficeException
     public function details(): array
     {
         return $this->details;
+    }
+
+    /**
+     * Seconds the service asked to wait before a retry (`Retry-After` of `429 too_many_requests`); null — it did not
+     * say.
+     */
+    public function retryAfter(): ?int
+    {
+        return $this->retryAfter;
+    }
+
+    public function isRateLimited(): bool
+    {
+        return $this->status === 429;
     }
 
     /**

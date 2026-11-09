@@ -73,7 +73,8 @@ BackOffice::outbox()->push(FinanceRequests::reverseBySource('stage_entry_fee', $
 |---------------------------------------------------------------------|-----------------------------------------------------------------------------|
 | 2xx                                                                 | отправлено, событие `OutboxMessageSent` (в нём ответ, например id операции) |
 | нет ответа, 5xx, circuit breaker открыт, 401/403                    | повтор без ограничения, задержка растёт до 10 минут                         |
-| `409 operation_not_found` (сторно раньше операции), 429             | повтор, до `max_attempts` раз                                               |
+| `429 too_many_requests` (лимит проекта)                             | повтор без ограничения не раньше `Retry-After`; остаток пачки ждёт          |
+| `409 operation_not_found` (сторно раньше операции)                  | повтор, до `max_attempts` раз                                               |
 | остальные отказы (422, `409 idempotency_conflict`, `period_locked`) | `failed`, событие `OutboxMessageFailed`; поток ждёт                         |
 
 «Застрявшие»: `OutboxMessage::stuck()` — для экрана в проекте, `php artisan back-office:outbox-stuck` — в консоли.
@@ -102,11 +103,12 @@ BackOffice::finance(null)->putCategory('entry_fee', 'Взносы', 'income');  
 Ошибки:
 
 - `ApiErrorException` — сервис отказал: `status()`, `errorCode()` (`period_locked`, `unknown_category`…),
-  `details()`, `isRetriable()`.
+  `details()`, `isRetriable()`; при `429` — `isRateLimited()` и `retryAfter()` (секунды из `Retry-After`).
 - `ServiceUnavailableException` — сервис не ответил или ответил 5xx; `CircuitOpenException` — запросы временно
   не отправляются. Экран показывает «Финансы временно недоступны»; запись идёт через очередь.
 
-Чтение повторяется дважды (100 и 400 мс), запись — нет. После 5 сбоев подряд circuit breaker на 30 секунд
+Чтение повторяется дважды (100 и 400 мс), запись — нет. Отказ по лимиту (`429`) сразу не повторяется и
+circuit breaker не открывает: повтор раньше `Retry-After` только тратит лимит. После 5 сбоев подряд circuit breaker на 30 секунд
 перестаёт отправлять запросы.
 
 ## Обязательства (finance)

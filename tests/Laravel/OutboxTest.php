@@ -246,6 +246,34 @@ class OutboxTest extends TestCase
         $this->assertSame(401, $message->last_status);
     }
 
+    public function testRateLimitIsRetriedAfterRetryAfterWithoutLimitAndStopsTheBatch(): void
+    {
+        config(['back-office.outbox.send_after_commit' => false, 'back-office.outbox.max_attempts' => 1]);
+        $this->mock->append(self::apiError(429, 'too_many_requests')->withHeader('Retry-After', '45'));
+
+        $first = $this->pushPayment('1');
+        $this->pushPayment('2');
+        $this->artisan('back-office:outbox-send')->expectsOutput('Sent: 0, retry later: 1, failed: 0, waiting: 0');
+
+        // The second message is not sent into a limit that is already reached.
+        $this->assertCount(1, $this->history);
+
+        $first->refresh();
+        $this->assertSame(OutboxMessage::STATUS_PENDING, $first->status);
+        $this->assertSame(429, $first->last_status);
+        $this->assertEqualsWithDelta(45, Carbon::now()->diffInSeconds($first->next_attempt_at), 1);
+    }
+
+    public function testBackoffWinsOverAShorterRetryAfter(): void
+    {
+        config(['back-office.outbox.backoff_base' => 10]);
+        $this->mock->append(self::apiError(429, 'too_many_requests')->withHeader('Retry-After', '1'));
+
+        $message = $this->pushPayment()->refresh();
+
+        $this->assertEqualsWithDelta(10, Carbon::now()->diffInSeconds($message->next_attempt_at), 1);
+    }
+
     public function testBackoffGrowsAndIsCapped(): void
     {
         config(['back-office.outbox.backoff_base' => 10, 'back-office.outbox.backoff_max' => 25]);

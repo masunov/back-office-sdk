@@ -141,7 +141,32 @@ final class Transport
         $message = \is_string($error['message'] ?? null) ? $error['message'] : $response->getReasonPhrase();
         unset($error['code'], $error['message']);
 
-        return new ApiErrorException($response->getStatusCode(), $code, $message, $error);
+        return new ApiErrorException(
+            $response->getStatusCode(),
+            $code,
+            $message,
+            $error,
+            null,
+            $this->retryAfter($response->getHeaderLine('Retry-After'))
+        );
+    }
+
+    /**
+     * `Retry-After` is seconds or an HTTP date; the service sends seconds.
+     */
+    private function retryAfter(string $header): ?int
+    {
+        if ($header === '') {
+            return null;
+        }
+
+        if (ctype_digit($header)) {
+            return (int) $header;
+        }
+
+        $at = strtotime($header);
+
+        return $at !== false ? max(0, $at - time()) : null;
     }
 
     /**
