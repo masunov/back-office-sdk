@@ -8,6 +8,8 @@ namespace Mnd\BackOffice\Dto;
  * An obligation to pay a counterparty (`direction` expense) or to be paid by one (income), with its schedule.
  * Not an operation: it changes no fact. `status` is the fulfilment, `paymentStatus` is computed from payments.
  * `totals`: agreed, recognized, paid, remaining, debt, unrecognized, overpaid, due (strings), over_recognized (bool).
+ * A deposit (`kind` deposit, no `category`): `paid` is what was deposited, plus returned, retained, held (strings),
+ * over_retained and settled (bool).
  * `recognitions` — the operations that recognize it, by their source; `payments` — its payments by date; both only
  * in the reading of one obligation.
  */
@@ -22,7 +24,7 @@ final class FinanceObligation
      */
     public function __construct(
         public readonly string $id,
-        public readonly string $category,
+        public readonly ?string $category,
         public readonly string $direction,
         public readonly ExternalRef $counterparty,
         public readonly ?ExternalRef $externalRef,
@@ -40,6 +42,7 @@ final class FinanceObligation
         public readonly array $documents,
         public readonly array $recognitions = [],
         public readonly array $payments = [],
+        public readonly string $kind = 'regular',
     ) {
     }
 
@@ -50,7 +53,7 @@ final class FinanceObligation
     {
         return new self(
             $data['id'],
-            $data['category'],
+            $data['category'] ?? null,
             $data['direction'],
             ExternalRef::fromArray($data['counterparty']),
             isset($data['external_ref']) ? ExternalRef::fromArray($data['external_ref']) : null,
@@ -67,7 +70,8 @@ final class FinanceObligation
             $data['comment'] ?? null,
             array_values($data['documents'] ?? []),
             array_values($data['recognitions'] ?? []),
-            array_map(fn (array $payment): FinancePayment => FinancePayment::fromArray($payment), $data['payments'] ?? [])
+            array_map(fn (array $payment): FinancePayment => FinancePayment::fromArray($payment), $data['payments'] ?? []),
+            $data['kind'] ?? 'regular'
         );
     }
 
@@ -85,6 +89,19 @@ final class FinanceObligation
     public function due(): string
     {
         return (string) ($this->totals['due'] ?? '0.00');
+    }
+
+    public function isDeposit(): bool
+    {
+        return $this->kind === 'deposit';
+    }
+
+    /**
+     * Of a deposit — what is still to give back: deposited, less returned and kept; 0.00 for a regular obligation.
+     */
+    public function held(): string
+    {
+        return (string) ($this->totals['held'] ?? '0.00');
     }
 
     /**

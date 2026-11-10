@@ -200,6 +200,23 @@ $payment->movement;   // FinanceMoneyMovement: top_up или withdrawal с ис�
 `accountAmount` — сумма в валюте счёта, нужна только для счёта не в валюте арендатора. Денег не хватает —
 `409 insufficient_funds`, платежа нет, не повторяется. Сторно платежа возвращает и деньги.
 
+**Залог** (сервис с 2026-11-10, `docs/FINANCE_OBLIGATIONS.md`, 2.8). Обязательство без статьи с направлением:
+`income` — залог у нас, `expense` — наш залог у контрагента. Платёж вносит залог, возврат (`kind: 'refund'`)
+возвращает, удержанная часть — операция дохода или расхода со ссылкой на залог:
+
+```php
+$key = 'rent_deposit:' . $deposit->id;
+BackOffice::outbox()->push(FinanceRequests::createDeposit('income', new ExternalRef('counterparty', '5', 'Арендатор'), '30000.00', 'rent_deposit', (string) $deposit->id), 'org-1');
+BackOffice::outbox()->push(FinanceRequests::createPayment($key, '30000.00', 'rent_deposit_in', (string) $receipt->id, account: $cashId), 'org-1');
+BackOffice::outbox()->push(FinanceRequests::createOperation('income_other', '5000.00', '2026-11-20', 'deposit_retention', (string) $act->id, obligation: $key), 'org-1');
+BackOffice::outbox()->push(FinanceRequests::createPayment($key, '25000.00', 'rent_deposit_back', (string) $back->id, kind: 'refund', account: $cashId), 'org-1');
+
+$o = $finance->obligation($key);   // $o->isDeposit(), $o->held() — на руках; totals: paid (внесено), returned, retained
+[$deposits] = $finance->obligations(kind: 'deposit');
+```
+
+Возврат больше залога на руках — `409 payment_exceeds_obligation`. У залога `category` — `null`, `debt` — 0.
+
 **Платёжный календарь.** Что осталось заплатить и получить — строки графиков с остатком после оплат:
 
 ```php

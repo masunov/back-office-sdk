@@ -6,6 +6,7 @@ namespace Mnd\BackOffice\Tests\Unit;
 
 use Mnd\BackOffice\BackOfficeClient;
 use Mnd\BackOffice\Dto\ExternalRef;
+use Mnd\BackOffice\Dto\FinanceObligation;
 use Mnd\BackOffice\Exceptions\ApiErrorException;
 use Mnd\BackOffice\Http\Transport;
 use Mnd\BackOffice\Requests\FinanceRequests;
@@ -69,6 +70,30 @@ class ObligationTest extends TestCase
         // No schedule — the service makes one undated line; nothing empty is sent.
         $this->assertArrayNotHasKey('schedule', $create->body);
         $this->assertSame('agreed', $create->body['status']);
+    }
+
+    public function testADepositHasADirectionAndNoCategory(): void
+    {
+        $create = FinanceRequests::createDeposit('income', new ExternalRef('counterparty', '5', 'Арендатор'), '30000', 'rent_deposit', 'd-1');
+
+        $this->assertSame('/v1/finance/obligations', $create->path);
+        $this->assertSame('deposit', $create->body['kind']);
+        $this->assertSame('income', $create->body['direction']);
+        $this->assertArrayNotHasKey('category', $create->body);
+        $this->assertSame(FinanceRequests::updateObligation('rent_deposit:d-1', 'cancelled')->stream, $create->stream);
+        $this->assertSame('deposit', FinanceRequests::listObligations(kind: 'deposit')->query['kind']);
+
+        $deposit = FinanceObligation::fromArray(
+            ['kind' => 'deposit', 'category' => null, 'direction' => 'income', 'totals' => self::OBLIGATION['totals'] + ['returned' => '0.00', 'retained' => '5000.00', 'held' => '25000.00']] + self::OBLIGATION
+        );
+        $this->assertTrue($deposit->isDeposit());
+        $this->assertNull($deposit->category);
+        $this->assertSame('25000.00', $deposit->held());
+
+        // An answer of a service before deposits has no kind: a regular obligation.
+        $regular = FinanceObligation::fromArray(self::OBLIGATION);
+        $this->assertFalse($regular->isDeposit());
+        $this->assertSame('0.00', $regular->held());
     }
 
     public function testOperationRecognizesItsObligation(): void

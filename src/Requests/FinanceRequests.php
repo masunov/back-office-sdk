@@ -259,6 +259,52 @@ final class FinanceRequests
     }
 
     /**
+     * A deposit (docs/FINANCE_OBLIGATIONS.md, 2.8): no category; `$direction` `income` — a deposit held by us,
+     * `expense` — placed by us. Its payments put it, its refunds give it back, an operation linked to it is the part
+     * kept. In the stream of its source, like any obligation.
+     *
+     * @param  'income'|'expense'  $direction
+     * @param  list<array{key: string, amount: string, due_on?: string|null, label?: string|null, external_ref?: array{type: string, id: string, label?: string|null}|null}>  $schedule
+     * @param  'planned'|'agreed'  $status
+     * @param  list<array{title?: string|null, url: string}>  $documents
+     */
+    public static function createDeposit(
+        string $direction,
+        ExternalRef $counterparty,
+        string $amount,
+        string $sourceType,
+        string $sourceId,
+        ?ExternalRef $externalRef = null,
+        array $schedule = [],
+        ?string $agreedOn = null,
+        string $status = 'agreed',
+        ?string $comment = null,
+        array $documents = [],
+    ): OutgoingRequest {
+        return OutgoingRequest::create(
+            '/v1/finance/obligations',
+            array_filter(
+                [
+                    'kind'         => 'deposit',
+                    'direction'    => $direction,
+                    'counterparty' => $counterparty->toArray(),
+                    'external_ref' => $externalRef?->toArray(),
+                    'amount'       => $amount,
+                    'agreed_on'    => $agreedOn,
+                    'status'       => $status,
+                    'schedule'     => $schedule === [] ? null : $schedule,
+                    'source_type'  => $sourceType,
+                    'source_id'    => $sourceId,
+                    'comment'      => $comment,
+                    'documents'    => $documents === [] ? null : $documents,
+                ],
+                fn (mixed $value): bool => $value !== null
+            ),
+            self::stream($sourceType, $sourceId)
+        );
+    }
+
+    /**
      * Fulfilment and description; only what is given changes. `$obligation` — the id or `<source_type>:<source_id>`.
      *
      * @param  'planned'|'agreed'|'partially_fulfilled'|'fulfilled'|'cancelled'|null  $status
@@ -434,6 +480,7 @@ final class FinanceRequests
         ?bool $overdue = null,
         ?int $perPage = null,
         ?string $cursor = null,
+        ?string $kind = null,
     ): OutgoingRequest {
         return OutgoingRequest::read(
             '/v1/finance/obligations',
@@ -441,6 +488,7 @@ final class FinanceRequests
                 'ref'            => $ref?->key(),
                 'counterparty'   => $counterparty?->key(),
                 'category'       => $category,
+                'kind'           => $kind,
                 'status'         => $status,
                 'payment_status' => $paymentStatus,
                 'overdue'        => $overdue === null ? null : (int) $overdue,

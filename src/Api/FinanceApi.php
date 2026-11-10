@@ -188,9 +188,10 @@ final class FinanceApi
         ?bool $overdue = null,
         ?int $perPage = null,
         ?string $cursor = null,
+        ?string $kind = null,
     ): array {
         $data = $this->send(
-            FinanceRequests::listObligations($ref, $counterparty, $category, $status, $paymentStatus, $overdue, $perPage, $cursor)
+            FinanceRequests::listObligations($ref, $counterparty, $category, $status, $paymentStatus, $overdue, $perPage, $cursor, $kind)
         );
 
         return [
