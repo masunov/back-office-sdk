@@ -198,6 +198,63 @@ $calendar->total('expense', 'overdue');    // и in_period, undated, paid_in_per
 Оба дня периода включительно. Раскладывать строки по датам выезда или этапа — на стороне проекта. Сумма графика не равна сумме
 — `schedule_mismatch`; исполнение назад — `invalid_transition`.
 
+## Денежные счета (finance)
+
+Наличные, карты, банковские счета арендатора (BO-FIN-007). У счёта есть:
+
+- `balance` — остаток в валюте счёта;
+- `baseCost` — стоимость остатка в валюте арендатора;
+- `averageRate` — средневзвешенный курс.
+
+Остаток меняют только движения денег. Движение — не операция: факт и отчёты не меняются, закрытый выезд не мешает.
+
+```php
+$finance = BackOffice::forTenant('org-1')->finance();
+$usd = $finance->createAccount('Доллары в кассе', 'cash', 'USD');
+$finance->accounts();                               // $account->balance, ->baseCost, ->averageRate
+
+// Покупка валюты: 9 000 ₽ и 100 ₽ комиссии за 100 $ — 91 ₽ за доллар, комиссия входит в цену.
+$exchange = $finance->moveMoney(
+    FinanceRequests::exchange($rub->id, '9000.00', $usd->id, '100.00', 'trip_exchange', (string) $op->id, fee: '100.00')
+);
+$exchange->effectiveRate;                           // '91.000000000000'
+$exchange->account($usd->id)->averageRate;
+
+// Расход из валютной кассы: стоимость — по среднему курсу счёта.
+$movement = $finance->moveMoney(
+    FinanceRequests::withdraw($usd->id, '30.00', 'expense', 'trip_cost_entry', (string) $entry->id, ref: new ExternalRef('trip', '42'))
+);
+$movement->debit()->rate;                           // фактический курс потраченных денег
+$movement->debit()->baseAmount;                     // сколько это в валюте арендатора
+
+// Ошибочное движение — сторно, по источнику; деньги вернутся по курсу исходного движения.
+BackOffice::outbox()->push(FinanceRequests::reverseMoneyMovement('trip_cost_entry:' . $entry->id), 'org-1');
+
+[$movements, $cursor] = $finance->moneyMovements(account: $usd->id, ref: new ExternalRef('trip', '42'));
+```
+
+Движения:
+
+- `topUp` — пополнение. Для счёта не в валюте арендатора нужна оценка `baseAmount`, иначе `valuation_required`.
+- `withdraw` — списание. Может ссылаться на операцию и платёж: `operation`, `payment` — id или источник.
+- `transfer` — перевод, только между счетами одной валюты.
+- `exchange` — обмен, только между разными валютами.
+- `adjust` — корректировка: `delta` со знаком и причина.
+
+Перевод между разными валютами или обмен в одной — `currency_mismatch`. Источник у движения обязателен. Повтор с
+тем же источником возвращает то же движение, с другими данными — `idempotency_conflict`.
+
+Ошибки:
+
+- `insufficient_funds` — денег на счёте меньше, чем нужно (поля `available`, `requested`); не повторяется.
+- `account_archived` — движение в архивный счёт.
+- `account_not_empty` — счёт с остатком не убирается в архив.
+- `409 operation_not_found`, `payment_not_found`, `money_movement_not_found` — объекта по источнику ещё нет;
+  очередь повторит.
+
+Вебхуки `finance.money_movement.created` и `.reversed` разбираются через `FinanceMoneyMovement::fromArray($event->data)`
+— со счетами после движения; `finance.account.*` — через `FinanceAccount::fromArray()`.
+
 ## Расписание (timetable)
 
 ```php

@@ -57,6 +57,14 @@ final class OutgoingRequest
     }
 
     /**
+     * @param  array<string, mixed>  $body
+     */
+    public static function patch(string $path, array $body, ?string $stream = null): self
+    {
+        return new self('PATCH', $path, [], $body, null, null, null, $stream);
+    }
+
+    /**
      * @param  array<string, mixed>|null  $body
      */
     public static function delete(string $path, ?array $body = null): self

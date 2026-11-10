@@ -7,7 +7,9 @@ namespace Mnd\BackOffice\Api;
 use Mnd\BackOffice\Dto\Actor;
 use Mnd\BackOffice\Dto\Budget;
 use Mnd\BackOffice\Dto\ExternalRef;
+use Mnd\BackOffice\Dto\FinanceAccount;
 use Mnd\BackOffice\Dto\FinanceCategory;
+use Mnd\BackOffice\Dto\FinanceMoneyMovement;
 use Mnd\BackOffice\Dto\FinanceObligation;
 use Mnd\BackOffice\Dto\FinanceOperation;
 use Mnd\BackOffice\Dto\FinancePayment;
@@ -290,6 +292,91 @@ final class FinanceApi
     public function export(array $refs, ?string $from = null, ?string $to = null): string
     {
         return $this->transport->sendRaw($this->withContext(FinanceRequests::export($refs, $from, $to)));
+    }
+
+    /**
+     * @return list<FinanceAccount>
+     */
+    public function accounts(bool $archived = false): array
+    {
+        return array_map(fn (array $account): FinanceAccount => FinanceAccount::fromArray($account), $this->send(FinanceRequests::listAccounts($archived))['data']);
+    }
+
+    public function account(string $id): FinanceAccount
+    {
+        return $this->accountOf(FinanceRequests::getAccount($id));
+    }
+
+    public function createAccount(string $name, string $kind, string $currency, ?string $comment = null): FinanceAccount
+    {
+        return $this->accountOf(FinanceRequests::createAccount($name, $kind, $currency, $comment));
+    }
+
+    /**
+     * @param  array{name?: string, kind?: string, comment?: string|null}  $fields
+     */
+    public function updateAccount(string $id, array $fields): FinanceAccount
+    {
+        return $this->accountOf(FinanceRequests::updateAccount($id, $fields));
+    }
+
+    public function archiveAccount(string $id, bool $archived = true): FinanceAccount
+    {
+        return $this->accountOf(FinanceRequests::archiveAccount($id, $archived));
+    }
+
+    /**
+     * Sends a movement built by `FinanceRequests::topUp`, `withdraw`, `transfer`, `exchange` or `adjust` at once, when
+     * a person waits for the balance.
+     */
+    public function moveMoney(OutgoingRequest $movement): FinanceMoneyMovement
+    {
+        return $this->movementOf($movement);
+    }
+
+    public function reverseMoneyMovement(string $movement, ?string $movedOn = null, ?string $comment = null): FinanceMoneyMovement
+    {
+        return $this->movementOf(FinanceRequests::reverseMoneyMovement($movement, $movedOn, $comment));
+    }
+
+    /**
+     * @param  string  $movement  an id or `<source_type>:<source_id>`
+     */
+    public function moneyMovement(string $movement): FinanceMoneyMovement
+    {
+        return $this->movementOf(FinanceRequests::getMoneyMovement($movement));
+    }
+
+    /**
+     * A page of movements, the newest first, and the cursor of the next one.
+     *
+     * @return array{0: list<FinanceMoneyMovement>, 1: string|null}
+     */
+    public function moneyMovements(
+        ?string $account = null,
+        ?string $kind = null,
+        ?ExternalRef $ref = null,
+        ?string $from = null,
+        ?string $to = null,
+        ?int $perPage = null,
+        ?string $cursor = null,
+    ): array {
+        $data = $this->send(FinanceRequests::listMoneyMovements($account, $kind, $ref, $from, $to, $perPage, $cursor));
+
+        return [
+            array_map(fn (array $movement): FinanceMoneyMovement => FinanceMoneyMovement::fromArray($movement), $data['data']),
+            $data['meta']['next_cursor'] ?? null,
+        ];
+    }
+
+    private function accountOf(OutgoingRequest $request): FinanceAccount
+    {
+        return FinanceAccount::fromArray($this->send($request)['data']);
+    }
+
+    private function movementOf(OutgoingRequest $request): FinanceMoneyMovement
+    {
+        return FinanceMoneyMovement::fromArray($this->send($request)['data']);
     }
 
     private function obligationOf(OutgoingRequest $request): FinanceObligation

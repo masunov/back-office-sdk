@@ -447,7 +447,198 @@ final class FinanceRequests
     }
 
     /**
-     * An obligation addressed by its source goes in the stream of its creation; by id — it is there already.
+     * The money accounts of the tenant (BO-FIN-007); with archived ones on request.
+     */
+    public static function listAccounts(bool $archived = false): OutgoingRequest
+    {
+        return OutgoingRequest::read('/v1/finance/accounts', ['archived' => $archived ? 1 : null]);
+    }
+
+    public static function getAccount(string $id): OutgoingRequest
+    {
+        return OutgoingRequest::read('/v1/finance/accounts/' . rawurlencode($id));
+    }
+
+    /**
+     * An empty account; its currency never changes.
+     *
+     * @param  'cash'|'card'|'bank'|'ewallet'|'other'  $kind
+     */
+    public static function createAccount(string $name, string $kind, string $currency, ?string $comment = null): OutgoingRequest
+    {
+        return OutgoingRequest::create(
+            '/v1/finance/accounts',
+            array_filter(['name' => $name, 'kind' => $kind, 'currency' => $currency, 'comment' => $comment], fn (?string $value): bool => $value !== null)
+        );
+    }
+
+    /**
+     * @param  array{name?: string, kind?: string, comment?: string|null}  $fields  a comment given as null clears it
+     */
+    public static function updateAccount(string $id, array $fields): OutgoingRequest
+    {
+        return OutgoingRequest::patch('/v1/finance/accounts/' . rawurlencode($id), $fields);
+    }
+
+    /**
+     * Only an empty account goes to the archive — `409 account_not_empty`; a repeat changes nothing.
+     */
+    public static function archiveAccount(string $id, bool $archived = true): OutgoingRequest
+    {
+        return OutgoingRequest::create('/v1/finance/accounts/' . rawurlencode($id) . ($archived ? '/archive' : '/unarchive'), []);
+    }
+
+    /**
+     * Money came to an account. For an account not in the currency of the tenant `baseAmount` — what it cost in that
+     * currency — is required (`422 valuation_required`).
+     *
+     * @param  'owner_contribution'|'accountable_return'|'income'|'advance'|'deposit'|'financing'|'other'  $basis
+     */
+    public static function topUp(
+        string $account,
+        string $amount,
+        string $basis,
+        string $sourceType,
+        string $sourceId,
+        ?string $baseAmount = null,
+        ?string $movedOn = null,
+        ?string $payment = null,
+        ?ExternalRef $ref = null,
+        ?string $comment = null,
+    ): OutgoingRequest {
+        return self::moneyMovement('top_up', $sourceType, $sourceId, ['account' => $account, 'amount' => $amount, 'basis' => $basis, 'base_amount' => $baseAmount, 'payment' => $payment], $movedOn, $ref, $comment);
+    }
+
+    /**
+     * Money left an account, valued at its average rate: the debit line of the answer has `rate` — what the money
+     * spent cost. More than there is — `409 insufficient_funds`, not retried. An operation or a payment by its source
+     * not there yet — `409 operation_not_found` / `payment_not_found`, retried.
+     *
+     * @param  'expense'|'payment'|'accountable'|'owner_withdrawal'|'other'  $basis
+     * @param  string|null  $operation  an id or `<source_type>:<source_id>`
+     * @param  string|null  $payment  an id or `<source_type>:<source_id>`
+     */
+    public static function withdraw(
+        string $account,
+        string $amount,
+        string $basis,
+        string $sourceType,
+        string $sourceId,
+        ?string $movedOn = null,
+        ?string $operation = null,
+        ?string $payment = null,
+        ?ExternalRef $ref = null,
+        ?string $comment = null,
+    ): OutgoingRequest {
+        return self::moneyMovement('withdrawal', $sourceType, $sourceId, ['account' => $account, 'amount' => $amount, 'basis' => $basis, 'operation' => $operation, 'payment' => $payment], $movedOn, $ref, $comment);
+    }
+
+    /**
+     * Between accounts of one currency; the cost goes with the money. Different currencies — `currency_mismatch`.
+     */
+    public static function transfer(
+        string $fromAccount,
+        string $toAccount,
+        string $amount,
+        string $sourceType,
+        string $sourceId,
+        ?string $movedOn = null,
+        ?ExternalRef $ref = null,
+        ?string $comment = null,
+    ): OutgoingRequest {
+        return self::moneyMovement('transfer', $sourceType, $sourceId, ['from_account' => $fromAccount, 'to_account' => $toAccount, 'amount' => $amount], $movedOn, $ref, $comment);
+    }
+
+    /**
+     * One currency for another: `fromAmount` and `fee` leave `fromAccount`, `toAmount` comes to `toAccount`. The fee is
+     * part of the price of the currency bought; `effectiveRate` of the answer is how much was given for one unit.
+     */
+    public static function exchange(
+        string $fromAccount,
+        string $fromAmount,
+        string $toAccount,
+        string $toAmount,
+        string $sourceType,
+        string $sourceId,
+        ?string $fee = null,
+        ?string $movedOn = null,
+        ?ExternalRef $ref = null,
+        ?string $comment = null,
+    ): OutgoingRequest {
+        return self::moneyMovement('exchange', $sourceType, $sourceId, ['from_account' => $fromAccount, 'from_amount' => $fromAmount, 'fee' => $fee, 'to_account' => $toAccount, 'to_amount' => $toAmount], $movedOn, $ref, $comment);
+    }
+
+    /**
+     * A count of the money differs from the balance: `delta` with its sign, the reason is required. Up on an empty
+     * foreign account needs `baseAmount`.
+     */
+    public static function adjust(
+        string $account,
+        string $delta,
+        string $reason,
+        string $sourceType,
+        string $sourceId,
+        ?string $baseAmount = null,
+        ?string $movedOn = null,
+        ?string $comment = null,
+    ): OutgoingRequest {
+        return self::moneyMovement('adjustment', $sourceType, $sourceId, ['account' => $account, 'delta' => $delta, 'reason' => $reason, 'base_amount' => $baseAmount], $movedOn, null, $comment);
+    }
+
+    /**
+     * The reversal of a money movement by its id or `<source_type>:<source_id>`; by the source it goes after the
+     * movement. The money and its cost come back at the rate of the movement undone.
+     */
+    public static function reverseMoneyMovement(string $movement, ?string $movedOn = null, ?string $comment = null): OutgoingRequest
+    {
+        return OutgoingRequest::create(
+            '/v1/finance/money-movements/' . rawurlencode($movement) . '/reverse',
+            array_filter(['moved_on' => $movedOn, 'comment' => $comment], fn (?string $value): bool => $value !== null),
+            self::obligationStream($movement)
+        );
+    }
+
+    public static function getMoneyMovement(string $movement): OutgoingRequest
+    {
+        return OutgoingRequest::read('/v1/finance/money-movements/' . rawurlencode($movement));
+    }
+
+    /**
+     * @param  'top_up'|'withdrawal'|'transfer'|'exchange'|'adjustment'|'reversal'|null  $kind
+     */
+    public static function listMoneyMovements(
+        ?string $account = null,
+        ?string $kind = null,
+        ?ExternalRef $ref = null,
+        ?string $from = null,
+        ?string $to = null,
+        ?int $perPage = null,
+        ?string $cursor = null,
+    ): OutgoingRequest {
+        return OutgoingRequest::read(
+            '/v1/finance/money-movements',
+            ['account' => $account, 'kind' => $kind, 'ref' => $ref?->key(), 'from' => $from, 'to' => $to, 'per_page' => $perPage, 'cursor' => $cursor]
+        );
+    }
+
+    /**
+     * @param  array<string, string|null>  $fields
+     */
+    private static function moneyMovement(string $kind, string $sourceType, string $sourceId, array $fields, ?string $movedOn, ?ExternalRef $ref, ?string $comment): OutgoingRequest
+    {
+        return OutgoingRequest::create(
+            '/v1/finance/money-movements',
+            array_filter(
+                ['kind' => $kind, 'source_type' => $sourceType, 'source_id' => $sourceId, ...$fields, 'moved_on' => $movedOn, 'ref' => $ref?->key(), 'comment' => $comment],
+                fn (?string $value): bool => $value !== null
+            ),
+            self::stream($sourceType, $sourceId)
+        );
+    }
+
+    /**
+     * An obligation, a payment or a money movement addressed by its source goes in the stream of its creation; by id
+     * — it is there already.
      */
     private static function obligationStream(string $obligation): ?string
     {
