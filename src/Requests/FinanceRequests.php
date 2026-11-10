@@ -306,6 +306,11 @@ final class FinanceRequests
      * @param  string  $obligation  an id or `<source_type>:<source_id>`
      * @param  string  $method  `money`, or `barter` — services or goods at an agreed value
      * @param  string|null  $paidOn  `Y-m-d`; null — today of the tenant
+     * @param  string|null  $account  the money account the money came to or left from: the payment and its money
+     *                                movement are written together; not enough money — `409 insufficient_funds`,
+     *                                not retried
+     * @param  string|null  $accountAmount  the money in the currency of the account, for an account not in the
+     *                                      currency of the tenant
      */
     public static function createPayment(
         string $obligation,
@@ -316,6 +321,8 @@ final class FinanceRequests
         string $kind = 'payment',
         string $method = 'money',
         ?string $comment = null,
+        ?string $account = null,
+        ?string $accountAmount = null,
     ): OutgoingRequest {
         return OutgoingRequest::create(
             '/v1/finance/payments',
@@ -327,8 +334,10 @@ final class FinanceRequests
                     'amount'      => $amount,
                     'paid_on'     => $paidOn,
                     'source_type' => $sourceType,
-                    'source_id'   => $sourceId,
-                    'comment'     => $comment,
+                    'source_id'      => $sourceId,
+                    'comment'        => $comment,
+                    'account'        => $account,
+                    'account_amount' => $accountAmount,
                 ],
                 fn (?string $value): bool => $value !== null
             ),

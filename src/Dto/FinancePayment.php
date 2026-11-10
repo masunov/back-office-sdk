@@ -8,7 +8,8 @@ namespace Mnd\BackOffice\Dto;
  * A payment of an obligation: `payment` adds to what is paid, `refund` takes from it, `reversal` undoes one record.
  * The amount is always positive. Also the `data` of the webhooks `finance.payment.created` and
  * `finance.payment.reversed`: then, and in the answer of a creation or a reversal, `obligationTotals` and
- * `obligationPaymentStatus` are what its obligation is now; in a list they are empty.
+ * `obligationPaymentStatus` are what its obligation is now; in a list they are empty. `movement` — the money of a
+ * payment written with an account (of a reversal — the reversal of that movement); null without one.
  */
 final class FinancePayment
 {
@@ -31,6 +32,7 @@ final class FinancePayment
         public readonly string $createdAt,
         public readonly array $obligationTotals = [],
         public readonly ?string $obligationPaymentStatus = null,
+        public readonly ?FinanceMoneyMovement $movement = null,
     ) {
     }
 
@@ -54,7 +56,8 @@ final class FinancePayment
             new Actor($data['actor']['id'] ?? null, $data['actor']['name'] ?? null),
             $data['created_at'],
             $data['obligation']['totals'] ?? [],
-            $data['obligation']['payment_status'] ?? null
+            $data['obligation']['payment_status'] ?? null,
+            isset($data['movement']) ? FinanceMoneyMovement::fromArray($data['movement']) : null
         );
     }
 

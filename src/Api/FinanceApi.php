@@ -122,8 +122,10 @@ final class FinanceApi
         string $kind = 'payment',
         string $method = 'money',
         ?string $comment = null,
+        ?string $account = null,
+        ?string $accountAmount = null,
     ): FinancePayment {
-        return $this->payment(FinanceRequests::createPayment($obligation, $amount, $sourceType, $sourceId, $paidOn, $kind, $method, $comment));
+        return $this->payment(FinanceRequests::createPayment($obligation, $amount, $sourceType, $sourceId, $paidOn, $kind, $method, $comment, $account, $accountAmount));
     }
 
     public function reversePayment(string $payment, ?string $paidOn = null, ?string $comment = null): FinancePayment

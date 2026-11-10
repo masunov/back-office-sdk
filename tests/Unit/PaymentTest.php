@@ -6,6 +6,7 @@ namespace Mnd\BackOffice\Tests\Unit;
 
 use Mnd\BackOffice\BackOfficeClient;
 use Mnd\BackOffice\Dto\ExternalRef;
+use Mnd\BackOffice\Dto\FinancePayment;
 use Mnd\BackOffice\Exceptions\ApiErrorException;
 use Mnd\BackOffice\Http\Transport;
 use Mnd\BackOffice\Requests\FinanceRequests;
@@ -71,6 +72,41 @@ class PaymentTest extends TestCase
         [$page, $next] = $finance->payments(obligation: 'trip_obligation:ob-1', ref: new ExternalRef('trip', '42'), from: '2026-11-01');
         $this->assertSame('obligation=trip_obligation%3Aob-1&ref=trip%3A42&from=2026-11-01', $this->sentRequest(1)->getUri()->getQuery());
         $this->assertSame(['money', 'c2', []], [$page[0]->method, $next, $page[0]->obligationTotals]);
+    }
+
+    public function testPaymentWithAnAccountCarriesItsMoney(): void
+    {
+        $request = FinanceRequests::createPayment('rent_receivable:r-1', '9300.00', 'rent_receipt', 'p-1', account: 'acc-usd', accountAmount: '100.00');
+        $this->assertSame(['acc-usd', '100.00'], [$request->body['account'], $request->body['account_amount']]);
+        $this->assertArrayNotHasKey('account', FinanceRequests::createPayment('rent_receivable:r-1', '1.00', 'rent_receipt', 'p-2')->body);
+
+        $finance = $this->client()->forTenant('org-1')->finance();
+        $this->mock->append(
+            self::jsonResponse(
+                201,
+                [
+                    'data' => ['direction' => 'income'] + self::PAYMENT + [
+                        'movement' => [
+                            'id'          => 'm-1',
+                            'kind'        => 'top_up',
+                            'moved_on'    => '2026-11-08',
+                            'basis'       => 'income',
+                            'source_type' => 'finance_payment',
+                            'source_id'   => self::PAYMENT['id'],
+                            'payment_id'  => self::PAYMENT['id'],
+                            'lines'       => [['account_id' => 'acc-usd', 'currency' => 'USD', 'role' => 'credit', 'amount' => '100.00', 'base_amount' => '9300.00', 'rate' => '93.000000000000', 'balance_after' => '100.00', 'base_cost_after' => '9300.00']],
+                            'actor'       => ['id' => 'u-1', 'name' => 'Финансист'],
+                            'created_at'  => '2026-11-08T12:00:00+00:00',
+                        ],
+                    ],
+                ]
+            ),
+        );
+
+        $payment = $finance->createPayment('rent_receivable:r-1', '9300.00', 'rent_receipt', 'p-1', account: 'acc-usd', accountAmount: '100.00');
+        $this->assertSame(['top_up', '100.00'], [$payment->movement?->kind, $payment->movement?->lines[0]->amount]);
+        $this->assertSame('acc-usd', json_decode((string) $this->sentRequest()->getBody(), true)['account']);
+        $this->assertNull(FinancePayment::fromArray(self::PAYMENT)->movement);
     }
 
     public function testCalendarOfATrip(): void

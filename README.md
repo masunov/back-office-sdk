@@ -187,6 +187,19 @@ BackOffice::outbox()->push(FinanceRequests::reversePayment('trip_payment:' . $pa
 Больше остатка или возврат больше оплаченного — `payment_exceeds_obligation`, не повторяется. Платежа по
 источнику ещё нет — `409 payment_not_found`, очередь повторит.
 
+**Платёж со счётом.** Деньги пришли в кассу или ушли с карты — платёж и движение денег записываются одним запросом:
+
+```php
+BackOffice::outbox()->push(
+    FinanceRequests::createPayment($key, '9300.00', 'rent_receipt', (string) $receipt->id, account: $usdAccountId, accountAmount: '100.00'),
+    'org-1'
+);
+$payment->movement;   // FinanceMoneyMovement: top_up или withdrawal с источником finance_payment:<id платежа>
+```
+
+`accountAmount` — сумма в валюте счёта, нужна только для счёта не в валюте арендатора. Денег не хватает —
+`409 insufficient_funds`, платежа нет, не повторяется. Сторно платежа возвращает и деньги.
+
 **Платёжный календарь.** Что осталось заплатить и получить — строки графиков с остатком после оплат:
 
 ```php
