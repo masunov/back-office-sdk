@@ -23,6 +23,8 @@ final class WarehouseIssue
         public readonly ?string $closedAt,
         public readonly bool $overdue,
         public readonly string $consumedQuantity = '0.000',
+        /** @var list<WarehouseLotPart> the lots it took, with what is settled of each */
+        public readonly array $lots = [],
     ) {
     }
 
@@ -44,7 +46,8 @@ final class WarehouseIssue
             $data['closed_at'] ?? null,
             (bool) $data['overdue'],
             // A service before consumptions sends no such field.
-            $data['consumed_quantity'] ?? '0.000'
+            $data['consumed_quantity'] ?? '0.000',
+            WarehouseLotPart::listFromArray($data['lots'] ?? [])
         );
     }
 

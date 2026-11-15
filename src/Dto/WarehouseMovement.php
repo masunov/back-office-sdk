@@ -12,6 +12,7 @@ final class WarehouseMovement
 {
     /**
      * @param  list<WarehouseBalance>  $balances
+     * @param  list<WarehouseLotPart>  $lots  the lots it took or brought; none of a serial item or of an older service
      */
     public function __construct(
         public readonly string $id,
@@ -32,6 +33,7 @@ final class WarehouseMovement
         public readonly string $occurredAt,
         public readonly array $balances = [],
         public readonly ?string $reservationId = null,
+        public readonly array $lots = [],
     ) {
     }
 
@@ -58,7 +60,8 @@ final class WarehouseMovement
             new Actor($data['actor']['id'] ?? null, $data['actor']['name'] ?? null),
             $data['occurred_at'],
             array_map(fn (array $balance): WarehouseBalance => WarehouseBalance::fromArray($balance), $data['balances'] ?? []),
-            $data['reservation_id'] ?? null
+            $data['reservation_id'] ?? null,
+            WarehouseLotPart::listFromArray($data['lots'] ?? [])
         );
     }
 }

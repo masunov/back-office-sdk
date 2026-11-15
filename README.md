@@ -348,6 +348,26 @@ $wh->move(WarehouseRequests::issue($oil->id, $store->id, $recipient, packages: '
 `packages`, которые не выражаются тремя знаками (1.5 бутылки по 0.333 л), — `422 invalid_movement`: остаток не
 округляется.
 
+### Партии и сроки годности
+
+Остаток количественной позиции — по партиям: номер и последний день годности. Уходящее берётся из самых ранних
+партий или из `lotId`; выдача и перемещение просроченную не берут (`409 lot_expired`), списание — берёт первой.
+
+```php
+$milk = $wh->createItem(new WarehouseItemInput('Молоко', ItemUnit::Litre, shelfLifeDays: 7));
+
+$wh->move(WarehouseRequests::receipt($milk->id, $fridge->id, quantity: '2', lotNumber: 'B-1', expiresOn: '2026-11-20'));
+$wh->move(WarehouseRequests::receipt($milk->id, $fridge->id, quantity: '1'));      // срок — сегодня + 7 дней
+$out = $wh->move(WarehouseRequests::writeOff($milk->id, $fridge->id, quantity: '0.3'));
+$out->lots;                                                                        // list<WarehouseLotPart>
+
+[$expiring] = $wh->lotsPage(expiresBefore: now()->addDays(3)->toDateString());     // list<WarehouseLot>
+$wh->move(WarehouseRequests::inventory($milk->id, $fridge->id, '0.5', lotId: $expiring[0]->id)); // одна партия
+```
+
+Вебхуки `warehouse.lot.expiring` (за `expiry_warning_days` настроек, `putSettings(..., expiryWarningDays: 2)`) и
+`warehouse.lot.expired` — `data: {lot, item}`, `WarehouseLot::fromArray($data['lot'])`.
+
 ### Позиции, движения, выдачи
 
 ```php

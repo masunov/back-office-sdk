@@ -9,7 +9,8 @@ use Mnd\BackOffice\Enum\ItemUnit;
 /**
  * An item to write. `accounting` — `quantity` or `serial`; quantities are strings with up to 3 decimals. `unit` — an
  * ItemUnit or its code (the service takes «шт» too). A pack or a bottle counted by quantity may hold a weight or a
- * volume: `packageUnit` (kg or l) with `packageSize` (0.75 — a bottle of 0.75 l).
+ * volume: `packageUnit` (kg or l) with `packageSize` (0.75 — a bottle of 0.75 l). `shelfLifeDays` — how long it keeps:
+ * a receipt without a date of its lot is good until the day it came plus these days.
  */
 final class WarehouseItemInput
 {
@@ -23,6 +24,7 @@ final class WarehouseItemInput
         public readonly ?string $photoUrl = null,
         public readonly string|ItemUnit|null $packageUnit = null,
         public readonly ?string $packageSize = null,
+        public readonly ?int $shelfLifeDays = null,
     ) {
     }
 
@@ -41,6 +43,7 @@ final class WarehouseItemInput
             'photo_url'    => $this->photoUrl,
             'package_unit' => $this->packageUnit instanceof ItemUnit ? $this->packageUnit->value : $this->packageUnit,
             'package_size' => $this->packageSize,
+            'shelf_life_days' => $this->shelfLifeDays,
         ];
     }
 }

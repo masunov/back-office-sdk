@@ -10,7 +10,8 @@ use Mnd\BackOffice\Enum\ItemUnit;
  * An item of the nomenclature: counted by quantity or each unit by its serial number. `unit` is a code of ItemUnit,
  * `unitLabel` — how to show it. A pack or a bottle may hold a weight or a volume (`packageUnit`, `packageSize`):
  * then every quantity of the item — balances, movements, issues, reservations, `minBalance` — is in `stockUnit`
- * (kg or l), and packages are only a way to enter it (`packages` of the movements).
+ * (kg or l), and packages are only a way to enter it (`packages` of the movements). `shelfLifeDays` dates a receipt
+ * that comes without `expiresOn`.
  */
 final class WarehouseItem
 {
@@ -29,6 +30,7 @@ final class WarehouseItem
         public readonly ?string $packageSize = null,
         public readonly ?string $stockUnit = null,
         public readonly ?string $stockUnitLabel = null,
+        public readonly ?int $shelfLifeDays = null,
     ) {
     }
 
@@ -51,7 +53,8 @@ final class WarehouseItem
             $data['package_unit'] ?? null,
             $data['package_size'] ?? null,
             $data['stock_unit'] ?? $data['unit'],
-            $data['stock_unit_label'] ?? null
+            $data['stock_unit_label'] ?? null,
+            isset($data['shelf_life_days']) ? (int) $data['shelf_life_days'] : null
         );
     }
 

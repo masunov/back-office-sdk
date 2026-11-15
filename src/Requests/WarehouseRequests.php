@@ -160,11 +160,18 @@ final class WarehouseRequests
     /**
      * Codes of expense categories of finance for purchases and write-offs; null — no operation for that kind.
      */
-    public static function putSettings(?string $purchaseCategory, ?string $writeOffCategory): OutgoingRequest
+    /**
+     * `expiryWarningDays` — how many days before its date a lot is told as expiring (0–30); null — as it was.
+     */
+    public static function putSettings(?string $purchaseCategory, ?string $writeOffCategory, ?int $expiryWarningDays = null): OutgoingRequest
     {
         return OutgoingRequest::put(
             '/v1/warehouse/settings',
-            ['purchase_category' => $purchaseCategory, 'write_off_category' => $writeOffCategory]
+            [
+                'purchase_category'  => $purchaseCategory,
+                'write_off_category' => $writeOffCategory,
+                ...($expiryWarningDays !== null ? ['expiry_warning_days' => $expiryWarningDays] : []),
+            ]
         );
     }
 
@@ -185,6 +192,9 @@ final class WarehouseRequests
         ?string $occurredAt = null,
         ?string $packages = null,
         ?string $packageCost = null,
+        ?string $lotId = null,
+        ?string $lotNumber = null,
+        ?string $expiresOn = null,
     ): OutgoingRequest {
         return self::movement(
             'receipt',
@@ -196,6 +206,9 @@ final class WarehouseRequests
             'serial_number'  => $serialNumber,
             'packages'       => $packages,
             'package_cost'   => $packageCost,
+            'lot_id' => $lotId,
+            'lot_number' => $lotNumber,
+            'expires_on' => $expiresOn,
             ],
             $sourceType,
             $sourceId,
@@ -220,6 +233,7 @@ final class WarehouseRequests
         ?string $comment = null,
         ?string $occurredAt = null,
         ?string $packages = null,
+        ?string $lotId = null,
     ): OutgoingRequest {
         return self::movement(
             'write_off',
@@ -229,6 +243,7 @@ final class WarehouseRequests
             'quantity'         => $quantity,
             'unit_id'          => $unitId,
             'packages'       => $packages,
+            'lot_id' => $lotId,
             ],
             $sourceType,
             $sourceId,
@@ -253,6 +268,7 @@ final class WarehouseRequests
         ?string $comment = null,
         ?string $occurredAt = null,
         ?string $packages = null,
+        ?string $lotId = null,
     ): OutgoingRequest {
         return self::movement(
             'transfer',
@@ -263,6 +279,7 @@ final class WarehouseRequests
             'quantity'         => $quantity,
             'unit_id'          => $unitId,
             'packages'       => $packages,
+            'lot_id' => $lotId,
             ],
             $sourceType,
             $sourceId,
@@ -288,6 +305,7 @@ final class WarehouseRequests
         ?string $comment = null,
         ?string $occurredAt = null,
         ?string $packages = null,
+        ?string $lotId = null,
     ): OutgoingRequest {
         return self::movement(
             'issue',
@@ -299,6 +317,7 @@ final class WarehouseRequests
             'unit_id'          => $unitId,
             'due_at'           => $dueAt,
             'packages'       => $packages,
+            'lot_id' => $lotId,
             ],
             $sourceType,
             $sourceId,
@@ -324,6 +343,7 @@ final class WarehouseRequests
         ?string $comment = null,
         ?string $occurredAt = null,
         ?string $packages = null,
+        ?string $lotId = null,
     ): OutgoingRequest {
         return self::movement(
             'issue',
@@ -335,6 +355,7 @@ final class WarehouseRequests
             'unit_id'        => $unitId,
             'due_at'         => $dueAt,
             'packages'       => $packages,
+            'lot_id' => $lotId,
             ],
             $sourceType,
             $sourceId,
@@ -362,6 +383,7 @@ final class WarehouseRequests
         ?string $comment = null,
         ?string $occurredAt = null,
         ?string $packages = null,
+        ?string $lotId = null,
     ): OutgoingRequest {
         return self::movement(
             'issue',
@@ -374,6 +396,7 @@ final class WarehouseRequests
             'unit_id'                 => $unitId,
             'due_at'                  => $dueAt,
             'packages'       => $packages,
+            'lot_id' => $lotId,
             ],
             $sourceType,
             $sourceId,
@@ -399,6 +422,7 @@ final class WarehouseRequests
         ?string $comment = null,
         ?string $occurredAt = null,
         ?string $packages = null,
+        ?string $lotId = null,
     ): OutgoingRequest {
         return self::movement(
             'return',
@@ -409,6 +433,7 @@ final class WarehouseRequests
             'to_location_id' => $toLocationId,
             'condition'      => $condition,
             'packages'       => $packages,
+            'lot_id' => $lotId,
             ],
             $sourceType,
             $sourceId,
@@ -436,6 +461,7 @@ final class WarehouseRequests
         ?string $comment = null,
         ?string $occurredAt = null,
         ?string $packages = null,
+        ?string $lotId = null,
     ): OutgoingRequest {
         return self::movement(
             'return',
@@ -447,6 +473,7 @@ final class WarehouseRequests
             'to_location_id'    => $toLocationId,
             'condition'         => $condition,
             'packages'       => $packages,
+            'lot_id' => $lotId,
             ],
             $sourceType,
             $sourceId,
@@ -471,6 +498,7 @@ final class WarehouseRequests
         ?string $comment = null,
         ?string $occurredAt = null,
         ?string $packages = null,
+        ?string $lotId = null,
     ): OutgoingRequest {
         return self::movement(
             'consume',
@@ -479,6 +507,7 @@ final class WarehouseRequests
             'issue_id' => $issueId,
             'quantity' => $quantity,
             'packages'       => $packages,
+            'lot_id' => $lotId,
             ],
             $sourceType,
             $sourceId,
@@ -503,6 +532,7 @@ final class WarehouseRequests
         ?string $comment = null,
         ?string $occurredAt = null,
         ?string $packages = null,
+        ?string $lotId = null,
     ): OutgoingRequest {
         return self::movement(
             'consume',
@@ -512,6 +542,7 @@ final class WarehouseRequests
             'issue_source_id'   => $issueSourceId,
             'quantity'          => $quantity,
             'packages'       => $packages,
+            'lot_id' => $lotId,
             ],
             $sourceType,
             $sourceId,
@@ -522,7 +553,8 @@ final class WarehouseRequests
     }
 
     /**
-     * The counted quantity at a place; the service writes the difference, or nothing.
+     * The counted quantity at a place; the service writes the difference, or nothing. With `lotId` — of that lot
+     * only; what was found over it comes to the lot of `lotNumber` and `expiresOn`.
      */
     public static function inventory(
         string $itemId,
@@ -532,6 +564,9 @@ final class WarehouseRequests
         ?string $sourceId = null,
         ?string $comment = null,
         ?string $occurredAt = null,
+        ?string $lotId = null,
+        ?string $lotNumber = null,
+        ?string $expiresOn = null,
     ): OutgoingRequest {
         return self::movement(
             'inventory',
@@ -539,6 +574,9 @@ final class WarehouseRequests
             [
             'location_id'     => $locationId,
             'actual_quantity' => $actualQuantity,
+            'lot_id' => $lotId,
+            'lot_number' => $lotNumber,
+            'expires_on' => $expiresOn,
             ],
             $sourceType,
             $sourceId,
@@ -560,6 +598,9 @@ final class WarehouseRequests
         ?string $sourceId = null,
         ?string $comment = null,
         ?string $occurredAt = null,
+        ?string $lotId = null,
+        ?string $lotNumber = null,
+        ?string $expiresOn = null,
     ): OutgoingRequest {
         return self::movement(
             'adjustment',
@@ -568,6 +609,9 @@ final class WarehouseRequests
             'location_id' => $locationId,
             'delta'       => $delta,
             'unit_cost'   => $unitCost,
+            'lot_id' => $lotId,
+            'lot_number' => $lotNumber,
+            'expires_on' => $expiresOn,
             ],
             $sourceType,
             $sourceId,
@@ -615,6 +659,39 @@ final class WarehouseRequests
     /**
      * Without `perPage` — a page of up to 1000, as the list was before it had pages; the next one by `cursor`.
      */
+    /**
+     * Lots by expiry date, the earliest first (the order stock leaves in). Without `withEmpty` — those with stock (at
+     * `locationId`, if given); `expiredOnly` — expired on the day of the tenant; `expiresBefore` (Y-m-d) — dated
+     * earlier than that day.
+     */
+    public static function lots(
+        ?string $itemId = null,
+        ?string $locationId = null,
+        bool $expiredOnly = false,
+        ?string $expiresBefore = null,
+        bool $withEmpty = false,
+        ?int $perPage = null,
+        ?string $cursor = null,
+    ): OutgoingRequest {
+        return OutgoingRequest::read(
+            '/v1/warehouse/lots',
+            [
+                'item_id'        => $itemId,
+                'location_id'    => $locationId,
+                'expired'        => $expiredOnly ? 1 : null,
+                'expires_before' => $expiresBefore,
+                'with_empty'     => $withEmpty ? 1 : null,
+                'per_page'       => $perPage,
+                'cursor'         => $cursor,
+            ]
+        );
+    }
+
+    public static function getLot(string $id): OutgoingRequest
+    {
+        return OutgoingRequest::read('/v1/warehouse/lots/' . rawurlencode($id));
+    }
+
     public static function units(
         ?string $itemId = null,
         ?string $locationId = null,

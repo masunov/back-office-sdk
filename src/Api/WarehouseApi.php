@@ -13,6 +13,7 @@ use Mnd\BackOffice\Dto\WarehouseItem;
 use Mnd\BackOffice\Dto\WarehouseItemInput;
 use Mnd\BackOffice\Dto\WarehouseLabel;
 use Mnd\BackOffice\Dto\WarehouseLocation;
+use Mnd\BackOffice\Dto\WarehouseLot;
 use Mnd\BackOffice\Dto\WarehouseMovement;
 use Mnd\BackOffice\Dto\WarehouseReservation;
 use Mnd\BackOffice\Dto\WarehouseUnit;
@@ -156,7 +157,8 @@ final class WarehouseApi
      * `finance_auto_post` false — the project forbids the warehouse to post to finance, whatever the categories: what
      * DriftManager checks of its tenants.
      *
-     * @return array{purchase_category: string|null, write_off_category: string|null, finance_auto_post: bool}
+     * @return array{purchase_category: string|null, write_off_category: string|null, expiry_warning_days?: int,
+     *     finance_auto_post: bool}
      */
     public function settings(): array
     {
@@ -166,9 +168,9 @@ final class WarehouseApi
     /**
      * @return array{purchase_category: string|null, write_off_category: string|null, finance_auto_post: bool}
      */
-    public function putSettings(?string $purchaseCategory, ?string $writeOffCategory): array
+    public function putSettings(?string $purchaseCategory, ?string $writeOffCategory, ?int $expiryWarningDays = null): array
     {
-        return $this->send(WarehouseRequests::putSettings($purchaseCategory, $writeOffCategory))['data'];
+        return $this->send(WarehouseRequests::putSettings($purchaseCategory, $writeOffCategory, $expiryWarningDays))['data'];
     }
 
     /**
@@ -226,6 +228,34 @@ final class WarehouseApi
     /**
      * @return list<WarehouseUnit>
      */
+    /**
+     * A page of lots, the earliest date first, and the cursor of the next one (null — no more): what to use first,
+     * what expires (`expiresBefore`), what expired (`expiredOnly`).
+     *
+     * @return array{0: list<WarehouseLot>, 1: string|null}
+     */
+    public function lotsPage(
+        ?string $itemId = null,
+        ?string $locationId = null,
+        bool $expiredOnly = false,
+        ?string $expiresBefore = null,
+        bool $withEmpty = false,
+        ?int $perPage = null,
+        ?string $cursor = null,
+    ): array {
+        $data = $this->send(WarehouseRequests::lots($itemId, $locationId, $expiredOnly, $expiresBefore, $withEmpty, $perPage, $cursor));
+
+        return [
+            array_map(fn (array $lot): WarehouseLot => WarehouseLot::fromArray($lot), $data['data']),
+            $data['meta']['next_cursor'] ?? null,
+        ];
+    }
+
+    public function lot(string $id): WarehouseLot
+    {
+        return WarehouseLot::fromArray($this->send(WarehouseRequests::getLot($id))['data']);
+    }
+
     public function units(?string $itemId = null, ?string $locationId = null, ?string $serialNumber = null): array
     {
         return array_map(
