@@ -142,6 +142,17 @@ final class WarehouseApi
     }
 
     /**
+     * The units of the service: to check ItemUnit against it, or to show what an older SDK does not know.
+     *
+     * @return list<array{code: string, label: string, dimension: string, base_unit: string, factor: string,
+     *     packaging: bool, package_measure: bool}>
+     */
+    public function itemUnits(): array
+    {
+        return $this->send(WarehouseRequests::itemUnits())['data'];
+    }
+
+    /**
      * `finance_auto_post` false — the project forbids the warehouse to post to finance, whatever the categories: what
      * DriftManager checks of its tenants.
      *

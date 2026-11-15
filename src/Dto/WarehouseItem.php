@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace Mnd\BackOffice\Dto;
 
+use Mnd\BackOffice\Enum\ItemUnit;
+
 /**
- * An item of the nomenclature: counted by quantity or each unit by its serial number.
+ * An item of the nomenclature: counted by quantity or each unit by its serial number. `unit` is a code of ItemUnit,
+ * `unitLabel` — how to show it. A pack or a bottle may hold a weight or a volume (`packageUnit`, `packageSize`):
+ * then every quantity of the item — balances, movements, issues, reservations, `minBalance` — is in `stockUnit`
+ * (kg or l), and packages are only a way to enter it (`packages` of the movements).
  */
 final class WarehouseItem
 {
@@ -19,6 +24,11 @@ final class WarehouseItem
         public readonly ?string $minBalance,
         public readonly ?string $photoUrl,
         public readonly bool $archived,
+        public readonly ?string $unitLabel = null,
+        public readonly ?string $packageUnit = null,
+        public readonly ?string $packageSize = null,
+        public readonly ?string $stockUnit = null,
+        public readonly ?string $stockUnitLabel = null,
     ) {
     }
 
@@ -36,8 +46,34 @@ final class WarehouseItem
             $data['accounting'],
             $data['min_balance'] ?? null,
             $data['photo_url'] ?? null,
-            (bool) $data['archived']
+            (bool) $data['archived'],
+            $data['unit_label'] ?? null,
+            $data['package_unit'] ?? null,
+            $data['package_size'] ?? null,
+            $data['stock_unit'] ?? $data['unit'],
+            $data['stock_unit_label'] ?? null
         );
+    }
+
+    /**
+     * The unit of the list; null for a unit an older service still keeps as free text.
+     */
+    public function itemUnit(): ?ItemUnit
+    {
+        return ItemUnit::fromInput($this->unit);
+    }
+
+    /**
+     * What the quantities of the item are in.
+     */
+    public function stockItemUnit(): ?ItemUnit
+    {
+        return ItemUnit::fromInput($this->stockUnit ?? $this->unit);
+    }
+
+    public function isPackaged(): bool
+    {
+        return $this->packageUnit !== null && $this->packageSize !== null;
     }
 
     public function isSerial(): bool

@@ -144,6 +144,14 @@ final class WarehouseRequests
         return OutgoingRequest::delete('/v1/warehouse/locations/' . rawurlencode($id));
     }
 
+    /**
+     * The units of the nomenclature as the service has them; the same list is ItemUnit.
+     */
+    public static function itemUnits(): OutgoingRequest
+    {
+        return OutgoingRequest::read('/v1/warehouse/item-units');
+    }
+
     public static function getSettings(): OutgoingRequest
     {
         return OutgoingRequest::read('/v1/warehouse/settings');
@@ -161,7 +169,8 @@ final class WarehouseRequests
     }
 
     /**
-     * Stock comes to a place. A serial item — one unit, by its `serialNumber`.
+     * Stock comes to a place. A serial item — one unit, by its `serialNumber`. A packaged item (a bottle of 0.75 l)
+     * may come by `packages` instead of `quantity` (4 → 3 l) and at `packageCost` instead of `unitCost`.
      */
     public static function receipt(
         string $itemId,
@@ -174,6 +183,8 @@ final class WarehouseRequests
         ?ExternalRef $externalRef = null,
         ?string $comment = null,
         ?string $occurredAt = null,
+        ?string $packages = null,
+        ?string $packageCost = null,
     ): OutgoingRequest {
         return self::movement(
             'receipt',
@@ -183,6 +194,8 @@ final class WarehouseRequests
             'quantity'       => $quantity,
             'unit_cost'      => $unitCost,
             'serial_number'  => $serialNumber,
+            'packages'       => $packages,
+            'package_cost'   => $packageCost,
             ],
             $sourceType,
             $sourceId,
@@ -193,7 +206,8 @@ final class WarehouseRequests
     }
 
     /**
-     * Stock leaves a place for good: lost, broken, used up. A serial item — one unit, by `unitId`.
+     * Stock leaves a place for good: lost, broken, used up. A serial item — one unit, by `unitId`. A packaged item is
+     * written off by volume or weight in its `stockUnit` (`quantity: '0.25'` — a quarter of a litre), or by `packages`.
      */
     public static function writeOff(
         string $itemId,
@@ -205,6 +219,7 @@ final class WarehouseRequests
         ?ExternalRef $externalRef = null,
         ?string $comment = null,
         ?string $occurredAt = null,
+        ?string $packages = null,
     ): OutgoingRequest {
         return self::movement(
             'write_off',
@@ -213,6 +228,7 @@ final class WarehouseRequests
             'from_location_id' => $fromLocationId,
             'quantity'         => $quantity,
             'unit_id'          => $unitId,
+            'packages'       => $packages,
             ],
             $sourceType,
             $sourceId,
@@ -236,6 +252,7 @@ final class WarehouseRequests
         ?ExternalRef $externalRef = null,
         ?string $comment = null,
         ?string $occurredAt = null,
+        ?string $packages = null,
     ): OutgoingRequest {
         return self::movement(
             'transfer',
@@ -245,6 +262,7 @@ final class WarehouseRequests
             'to_location_id'   => $toLocationId,
             'quantity'         => $quantity,
             'unit_id'          => $unitId,
+            'packages'       => $packages,
             ],
             $sourceType,
             $sourceId,
@@ -269,6 +287,7 @@ final class WarehouseRequests
         ?ExternalRef $externalRef = null,
         ?string $comment = null,
         ?string $occurredAt = null,
+        ?string $packages = null,
     ): OutgoingRequest {
         return self::movement(
             'issue',
@@ -279,6 +298,7 @@ final class WarehouseRequests
             'quantity'         => $quantity,
             'unit_id'          => $unitId,
             'due_at'           => $dueAt,
+            'packages'       => $packages,
             ],
             $sourceType,
             $sourceId,
@@ -303,6 +323,7 @@ final class WarehouseRequests
         ?ExternalRef $externalRef = null,
         ?string $comment = null,
         ?string $occurredAt = null,
+        ?string $packages = null,
     ): OutgoingRequest {
         return self::movement(
             'issue',
@@ -313,6 +334,7 @@ final class WarehouseRequests
             'quantity'       => $quantity,
             'unit_id'        => $unitId,
             'due_at'         => $dueAt,
+            'packages'       => $packages,
             ],
             $sourceType,
             $sourceId,
@@ -339,6 +361,7 @@ final class WarehouseRequests
         ?ExternalRef $externalRef = null,
         ?string $comment = null,
         ?string $occurredAt = null,
+        ?string $packages = null,
     ): OutgoingRequest {
         return self::movement(
             'issue',
@@ -350,6 +373,7 @@ final class WarehouseRequests
             'quantity'                => $quantity,
             'unit_id'                 => $unitId,
             'due_at'                  => $dueAt,
+            'packages'       => $packages,
             ],
             $sourceType,
             $sourceId,
@@ -374,6 +398,7 @@ final class WarehouseRequests
         ?string $sourceId = null,
         ?string $comment = null,
         ?string $occurredAt = null,
+        ?string $packages = null,
     ): OutgoingRequest {
         return self::movement(
             'return',
@@ -383,6 +408,7 @@ final class WarehouseRequests
             'quantity'       => $quantity,
             'to_location_id' => $toLocationId,
             'condition'      => $condition,
+            'packages'       => $packages,
             ],
             $sourceType,
             $sourceId,
@@ -409,6 +435,7 @@ final class WarehouseRequests
         ?string $sourceId = null,
         ?string $comment = null,
         ?string $occurredAt = null,
+        ?string $packages = null,
     ): OutgoingRequest {
         return self::movement(
             'return',
@@ -419,6 +446,7 @@ final class WarehouseRequests
             'quantity'          => $quantity,
             'to_location_id'    => $toLocationId,
             'condition'         => $condition,
+            'packages'       => $packages,
             ],
             $sourceType,
             $sourceId,
@@ -442,6 +470,7 @@ final class WarehouseRequests
         ?ExternalRef $externalRef = null,
         ?string $comment = null,
         ?string $occurredAt = null,
+        ?string $packages = null,
     ): OutgoingRequest {
         return self::movement(
             'consume',
@@ -449,6 +478,7 @@ final class WarehouseRequests
             [
             'issue_id' => $issueId,
             'quantity' => $quantity,
+            'packages'       => $packages,
             ],
             $sourceType,
             $sourceId,
@@ -472,6 +502,7 @@ final class WarehouseRequests
         ?ExternalRef $externalRef = null,
         ?string $comment = null,
         ?string $occurredAt = null,
+        ?string $packages = null,
     ): OutgoingRequest {
         return self::movement(
             'consume',
@@ -480,6 +511,7 @@ final class WarehouseRequests
             'issue_source_type' => $issueSourceType,
             'issue_source_id'   => $issueSourceId,
             'quantity'          => $quantity,
+            'packages'       => $packages,
             ],
             $sourceType,
             $sourceId,

@@ -326,15 +326,40 @@ DB::transaction(function () use ($booking, $cert, $school) {
 
 ## Склад (warehouse)
 
+### Единицы
+
+Единица позиции — из списка сервиса, он один для всех проектов: `ItemUnit` (`pcs`, `pack`, `bottle`, `kg`, `g`,
+`l`, `ml`, `m`), тот же список отдаёт `$wh->itemUnits()`. Сервис принимает и русские написания («шт», «кг.»), а
+отвечает кодом; показывать — `WarehouseItem::$unitLabel` или `ItemUnit::label()`. Единицы одной величины
+пересчитываются: `ItemUnit::Gram->convert('250', ItemUnit::Kilogram)` — `'0.250'`; штуки, упаковки и бутылки не
+пересчитываются (`null`).
+
+Упаковка и бутылка могут вмещать вес или объём. Тогда все количества позиции — остаток, движения, выдачи, резервы,
+`minBalance` — в `WarehouseItem::$stockUnit` (kg или l), и списание по объёму — обычное `quantity`:
+
+```php
+$oil = $wh->createItem(new WarehouseItemInput('Масло 5W40', ItemUnit::Bottle, packageUnit: ItemUnit::Litre, packageSize: '0.75'));
+
+$wh->move(WarehouseRequests::receipt($oil->id, $store->id, packages: '4', packageCost: '800'));   // 3 л по 1066.6667
+$wh->move(WarehouseRequests::writeOff($oil->id, $store->id, quantity: '0.25'));                   // 250 мл
+$wh->move(WarehouseRequests::issue($oil->id, $store->id, $recipient, packages: '1'));             // 0.75 л
+```
+
+`packages`, которые не выражаются тремя знаками (1.5 бутылки по 0.333 л), — `422 invalid_movement`: остаток не
+округляется.
+
+### Позиции, движения, выдачи
+
 ```php
 use Mnd\BackOffice\Dto\WarehouseItemInput;
+use Mnd\BackOffice\Enum\ItemUnit;
 use Mnd\BackOffice\Requests\WarehouseRequests;
 
 $wh = BackOffice::warehouse($organization->id, new Actor($user->id, $user->name));
 
 // Позиции и места; место этапа связано с этапом через external_ref.
-$tent  = $wh->createItem(new WarehouseItemInput('Шатёр 3×3', 'шт', minBalance: '2'));
-$radio = $wh->createItem(new WarehouseItemInput('Рация', 'шт', accounting: 'serial'));
+$tent  = $wh->createItem(new WarehouseItemInput('Шатёр 3×3', ItemUnit::Piece, minBalance: '2'));
+$radio = $wh->createItem(new WarehouseItemInput('Рация', ItemUnit::Piece, accounting: 'serial'));
 $store = $wh->createLocation('Склад', 'warehouse');
 
 // Названия того, что на экране, без чтения всего каталога: по id, архивные тоже, запросами до 200.
