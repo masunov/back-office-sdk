@@ -403,6 +403,20 @@ final class FinanceRequests
         );
     }
 
+    /**
+     * Records the missing withdrawal of an already confirmed payout. The payout stays intact.
+     *
+     * @param  string  $payment  id or <source_type>:<source_id>
+     * @param  string|null  $accountAmount  the actual debit in the currency of a foreign account
+     */
+    public static function attachPaymentAccount(string $payment, string $account, ?string $accountAmount = null): OutgoingRequest
+    {
+        return OutgoingRequest::create(
+            '/v1/finance/payments/' . rawurlencode($payment) . '/account',
+            array_filter(['account' => $account, 'account_amount' => $accountAmount], fn (?string $value): bool => $value !== null)
+        );
+    }
+
     public static function listPayments(
         ?string $obligation = null,
         ?ExternalRef $ref = null,

@@ -7,7 +7,7 @@ namespace Mnd\BackOffice\Dto;
 /**
  * A payment of an obligation: `payment` adds to what is paid, `refund` takes from it, `reversal` undoes one record.
  * The amount is always positive. Also the `data` of the webhooks `finance.payment.created` and
- * `finance.payment.reversed`: then, and in the answer of a creation or a reversal, `obligationTotals` and
+ * `finance.payment.reversed` and `finance.payment.account_attached`. In those events and write responses, `obligationTotals` and
  * `obligationPaymentStatus` are what its obligation is now; in a list they are empty. `movement` — the money of a
  * payment written with an account (of a reversal — the reversal of that movement); null without one.
  */

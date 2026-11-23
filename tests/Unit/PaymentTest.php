@@ -74,6 +74,21 @@ class PaymentTest extends TestCase
         $this->assertSame(['money', 'c2', []], [$page[0]->method, $next, $page[0]->obligationTotals]);
     }
 
+    public function testAttachingAnAccountSendsOnlyTheMissingWithdrawal(): void
+    {
+        $request = FinanceRequests::attachPaymentAccount('trip_payment:p-1', 'acc-byn', '450.00');
+
+        $this->assertSame('POST', $request->method);
+        $this->assertSame('/v1/finance/payments/trip_payment%3Ap-1/account', $request->path);
+        $this->assertSame(['account' => 'acc-byn', 'account_amount' => '450.00'], $request->body);
+        $this->assertNotNull($request->idempotencyKey);
+        $this->assertNull($request->stream);
+        $this->assertSame(
+            ['account' => 'acc-rub'],
+            FinanceRequests::attachPaymentAccount(self::PAYMENT['id'], 'acc-rub')->body
+        );
+    }
+
     public function testPaymentWithAnAccountCarriesItsMoney(): void
     {
         $request = FinanceRequests::createPayment('rent_receivable:r-1', '9300.00', 'rent_receipt', 'p-1', account: 'acc-usd', accountAmount: '100.00');

@@ -326,6 +326,11 @@ DB::transaction(function () use ($booking, $cert, $school) {
 
 ## Склад (warehouse)
 
+Для проведённой денежной выплаты можно записать недостающее списание через
+FinanceRequests::attachPaymentAccount('trip_payment:' . $paymentId, $accountId, accountAmount: '450.00').
+Выплата сохраняется. Для валютного счёта укажите фактическую сумму в его валюте. Перед отправкой привязки
+дождитесь подтверждения исходной выплаты.
+
 ### Единицы
 
 Единица позиции — из списка сервиса, он один для всех проектов: `ItemUnit` (`pcs`, `pack`, `bottle`, `kg`, `g`,
