@@ -348,6 +348,11 @@ $wh->move(WarehouseRequests::issue($oil->id, $store->id, $recipient, packages: '
 `packages`, которые не выражаются тремя знаками (1.5 бутылки по 0.333 л), — `422 invalid_movement`: остаток не
 округляется.
 
+Прямой расход количества из места (сервис с `settings.data.capabilities.consume_from_location=true`):
+`WarehouseRequests::consumeFromLocation($milk->id, $fridge->id, quantity: '0.250', lotId: $lot->id)`.
+Без lotId — непросроченные FEFO партии. Резервированный остаток не расходуется; нет промежуточной выдачи.
+Прежний `consumeIssue` продолжает гасить выдачу без изменения остатка места.
+
 ### Партии и сроки годности
 
 Остаток количественной позиции — по партиям: номер и последний день годности. Уходящее берётся из самых ранних

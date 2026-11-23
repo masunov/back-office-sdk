@@ -43,6 +43,18 @@ class LotTest extends TestCase
         $this->assertArrayNotHasKey('expiry_warning_days', WarehouseRequests::putSettings(null, null)->body);
     }
 
+    public function testDirectConsumptionNamesOnlyItsPlaceAndLot(): void
+    {
+        $request = WarehouseRequests::consumeFromLocation(self::ITEM, 'fridge', '0.250', sourceType: 'food', sourceId: '1', lotId: self::LOT);
+        $this->assertSame('consume', $request->body['type']);
+        $this->assertSame('fridge', $request->body['from_location_id']);
+        $this->assertSame('0.250', $request->body['quantity']);
+        $this->assertSame(self::LOT, $request->body['lot_id']);
+        $this->assertArrayNotHasKey('issue_id', $request->body);
+        $this->assertArrayNotHasKey('to_location_id', $request->body);
+        $this->assertSame('2', WarehouseRequests::consumeFromLocation(self::ITEM, 'fridge', packages: '2')->body['packages']);
+    }
+
     public function testMovementAndIssueCarryTheirLots(): void
     {
         $part     = ['lot_id' => self::LOT, 'number' => 'B-1', 'expires_on' => '2026-11-20', 'quantity' => '0.750'];

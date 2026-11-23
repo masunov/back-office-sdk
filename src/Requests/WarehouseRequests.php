@@ -484,6 +484,34 @@ final class WarehouseRequests
     }
 
     /**
+     * Quantity stock used directly from a place: good FEFO lots (or lotId), no intermediate issue.
+     * Requires settings.data.capabilities.consume_from_location=true on the service.
+     */
+    public static function consumeFromLocation(
+        string $itemId,
+        string $fromLocationId,
+        ?string $quantity = null,
+        ?string $sourceType = null,
+        ?string $sourceId = null,
+        ?ExternalRef $externalRef = null,
+        ?string $comment = null,
+        ?string $occurredAt = null,
+        ?string $packages = null,
+        ?string $lotId = null,
+    ): OutgoingRequest {
+        return self::movement(
+            'consume',
+            $itemId,
+            ['from_location_id' => $fromLocationId, 'quantity' => $quantity, 'packages' => $packages, 'lot_id' => $lotId],
+            $sourceType,
+            $sourceId,
+            $externalRef,
+            $comment,
+            $occurredAt
+        );
+    }
+
+    /**
      * Issued stock used up where it went (oil at a trip, a destroyed tyre): it settles the issue without coming back.
      * Without a quantity — what is left of the issue; a serial unit is the one of the issue and is written off. More
      * than is left — `409 consume_exceeds_issue`.
